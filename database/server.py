@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from google import genai
 from chatbot.chatbot import get_reply
 
-from database import check_user, add_user, check_username
+from database.database import check_user, add_user, check_username
 client = genai.Client()
 
 load_dotenv()

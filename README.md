@@ -53,13 +53,20 @@ uvicorn gadyen.api:app --reload
 | `tests/` | Unit and adversarial tests |
 
 
-## Elliot's Additions
+# Elliot's Additions
 
 ## Starting up Server
 1. Install mysql
-2. Create a virtual enviornment like "python3 -m venv gayden-venv"
-3. I do not remember everything I downloaded, so keep track and record what you downloaded and install all of them
-4. Start the server by running the command "python3 server.py"
+2. Create a virtual enviornment like "python3 -m venv gadyen-env"
+3. Start the server by running the command "python3 -m database.server" at the ~/gadyen-comp5610 directory
+
+## Installations:
+1. In virtual environment:
+   - pip3 install flask
+   - pip3 install mysql-connector-python
+   - pip3 install dotenv
+   - python3 -m pip install google-genai
+   - pip3 install bcrypt
 
 ## Database.py
 1. I created a .env folder:
