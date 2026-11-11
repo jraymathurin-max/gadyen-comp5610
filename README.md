@@ -56,12 +56,16 @@ uvicorn gadyen.api:app --reload
 # Elliot's Additions
 
 ## Starting up Server
-1. Install mysql
-2. Create a virtual enviornment like "python3 -m venv gadyen-env"
-3. Start the server by running the command "python3 -m database.server" at the ~/gadyen-comp5610 directory
+1. Install mysql (See installation instructions)
+2. In mysql, create a database by typing: "CREATE DATABASE compsec;"
+3. To see if data is getting added to database in terminal (NOT NEEDED) type "use compsec"
+4. Create a virtual enviornment like "python3 -m venv gadyen-env"
+5. Start the server by running the command "python3 -m database.server" at the ~/gadyen-comp5610 directory
 
 ## Installations:
-1. In virtual environment:
+1. sudo apt update
+2. sudo apt install mysql-server
+3. In virtual environment:
    - pip3 install flask
    - pip3 install mysql-connector-python
    - pip3 install dotenv
