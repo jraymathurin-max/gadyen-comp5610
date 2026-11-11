@@ -53,21 +53,21 @@ uvicorn gadyen.api:app --reload
 | `tests/` | Unit and adversarial tests |
 
 
-<!-- Elliot's Additions -->
+## Elliot's Additions
 
 ## Starting up Server
 1. Install mysql
-2. Create a virtual enviornment like "python3 venv -m gayden-venv"
+2. Create a virtual enviornment like "python3 -m venv gayden-venv"
 3. I do not remember everything I downloaded, so keep track and record what you downloaded and install all of them
 4. Start the server by running the command "python3 server.py"
 
 ## Database.py
 1. I created a .env folder:
-   MYSQL_HOST='127.0.0.1'
-   MYSQL_USER='[Your mysql username]'
-   MYSQL_PASSWORD='[Your mysql password]'
-   MYSQL_DATABASE='compsec'
-   SECRET_KEY=***Create your own secret key***
+   - MYSQL_HOST='127.0.0.1'
+   - MYSQL_USER='[Your mysql username]'
+   - MYSQL_PASSWORD='[Your mysql password]'
+   - MYSQL_DATABASE='compsec'
+   - SECRET_KEY=***Create your own secret key***
 
 2. Connects to the mysql database
 3. Gets cursor to use to communicate with database, created a function so it doesn't keep calling it
@@ -95,3 +95,4 @@ uvicorn gadyen.api:app --reload
 
 ## Important Notes:
 1. Most of the html, css is in a folder named "public", since the internet needs to be able to read the files. "dashboard is in a separate folder since it should only be accessed if the user puts in their correct username and password
+2. Created another .env folder with my GEMINI_API_KEY in chatbot folder
