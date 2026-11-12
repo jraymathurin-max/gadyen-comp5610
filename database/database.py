@@ -39,6 +39,13 @@ def get_table():
             )
         """)
         cur.execute("""
+            CREATE TABLE IF NOT EXISTS user_info (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL,
+                FOR
+        """)
+        cur.execute("""
             CREATE TABLE IF NOT EXISTS chat_messages (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
@@ -94,19 +101,21 @@ def add_user(username, password):
     print(f"{username} added")
 
 
-def saveMessage(user_id, role, content):
-    with get_cursor() as cur:
+def save_chat_message(user_id, role, content):
+    with get_cursor(commit=True) as cur:
         cur.execute("INSERT INTO chat_messages (user_id, role, content) VALUES (%s,%s,%s)",
         (user_id, role, content),
         )
 
-def getRecentMessages(user_id, limit=20):
-    with get_cursor(commit=True) as cur:
+def get_chat_history(user_id, limit=20):
+    with get_cursor() as cur:
         cur.execute(
-            """ SELECT role, content FROM chat_messages 
-                WHERE user_id = %s ORDER BY created_at DESC, id DESC LIMIT %s""",
-                (user_id, limit),
-                    )
+            """ 
+            SELECT role, content FROM chat_messages 
+            WHERE user_id = %s ORDER BY created_at DESC, id DESC LIMIT %s
+            """,
+            (user_id, limit),
+        )
         rows = cur.fetchall()
     return rows[::-1]   # oldest first
 

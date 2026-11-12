@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from google import genai
 from chatbot.chatbot import get_reply
 
-from database.database import check_user, add_user, check_username
+from database.database import check_user, add_user, check_username, save_chat_message, get_chat_history
 client = genai.Client()
 
 load_dotenv()
@@ -64,8 +64,37 @@ def login():
 def chat():
     if "user_id" not in session:
         return jsonify(error="Not logged in"), 401
-    message = request.get_json()["message"]
-    return jsonify(reply=get_reply(session["user_id"], message))
+    user_id = session["user_id"]
+    message = request.get_json().get("message", "").strip()
+
+    if not message:
+        return jsonify(error="Empty message"), 400
+
+    save_chat_message(user_id, "user", message)
+    reply = get_reply(user_id, message)
+    save_chat_message(user_id, "bot", reply)
+    return jsonify(reply=reply)
+
+@app.get("/chat/history")
+def chat_history():
+    if "user_id" not in session:
+        return jsonify(error="Not logged in"), 401
+    user_id = session["user_id"]
+    history = get_chat_history(user_id)
+    if history:
+        return jsonify(reply=None)
+
+    prompt = """
+     "Introduce yourself as Gayden Safeguard and welcome the user. Briefly explain that you help create WISPs and ask what language they prefer."
+    """
+
+@app.get("/chat/history")
+def chat_history():
+    if "user_id" not in session:
+        return jsonify(error="Not logged in"), 401
+    history = get_chat_history(session["user_id"])
+    return jsonify(history)
+    
 
 if __name__=="__main__":
     app.run(port=3000, debug=True)
