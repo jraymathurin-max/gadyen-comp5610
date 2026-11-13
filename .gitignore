@@ -3,6 +3,7 @@
 __pycache__/
 .pytest_cache/
 .venv/
+gadyen-env/
 gadyen-report.json
 *.docx
 .DS_Store
