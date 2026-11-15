@@ -107,3 +107,28 @@ uvicorn gadyen.api:app --reload
 ## Important Notes:
 1. Most of the html, css is in a folder named "public", since the internet needs to be able to read the files. "dashboard is in a separate folder since it should only be accessed if the user puts in their correct username and password
 2. Created another .env folder with my GEMINI_API_KEY in chatbot folder
+
+# gadyen_web: second web interface (Nov 13, 2026)
+
+A separate copy of the web chat. Elliot's files in `database/` and `chatbot/` are
+unchanged; `gadyen_web/` only reuses the database functions in `database/database.py`.
+
+| Path | Purpose |
+|---|---|
+| `gadyen_web/server.py` | Flask server (same routes as `database/server.py`) |
+| `gadyen_web/chatbot.py` | Agent: language from the interface, structured questions, error handling |
+| `gadyen_web/languages.py` | The 10 supported languages and welcome messages |
+| `gadyen_web/public/`, `gadyen_web/views/` | Login, register and chat pages, network background |
+| `tests/test_chat_web.py` | Tests for this interface (no database or API key needed) |
+
+## Run
+- Local: `python3 -m gadyen_web.server` (port 3000)
+- Render start command: `gunicorn gadyen_web.server:app` (timeout and workers come
+  from `gunicorn.conf.py`)
+- Same environment variables as the original server; optional `GEMINI_MODEL`.
+
+## Notes
+- To add a language, add it in `gadyen_web/languages.py` and in
+  `gadyen_web/public/chatbot-script.js`.
+- Saved office facts go to `gadyen_web_memory.json`, one profile per user. Render
+  resets this file at each deploy.

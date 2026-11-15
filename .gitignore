@@ -7,3 +7,4 @@ gadyen-env/
 gadyen-report.json
 *.docx
 .DS_Store
+gadyen_web_memory.json
