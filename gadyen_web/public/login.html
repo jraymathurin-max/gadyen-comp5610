@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign in to Gadyen Safeguard</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <canvas id="net-bg" aria-hidden="true"></canvas>
+    <div class="wrapper">
+        <form action="/login" method="post">
+            <div class="brand">
+                <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 2 20 5.5v6.2c0 5-3.3 8.6-8 10.3-4.7-1.7-8-5.3-8-10.3V5.5Z"/>
+                    <path d="m8.3 12 2.7 2.9 4.8-5.6"/>
+                </svg>
+                <span>Gadyen Safeguard</span>
+            </div>
+            <h1>Login</h1>
+            <p id="error-msg" class="error-msg">Username or password was incorrect, try again</p>
+            <div class="input-box">
+                <input type="text" name="username" placeholder="Username" aria-label="Username"
+                       autocomplete="username" required>
+            </div>
+            <div class="input-box">
+                <input type="password" name="password" placeholder="Password" aria-label="Password"
+                       autocomplete="current-password" required>
+            </div>
+            <div class="remember-forgot">
+                <label>
+                    <input type="checkbox" >
+                    Remember me
+                </label>
+                <a href="#">Forgot password?</a>
+            </div>
+
+            <button type="submit" class="login-btn">Login</button>
+
+            <div class="register-link">
+                <p>
+                    Don't have an account?
+                    <a href="register.html">Register</a>
+                </p>
+            </div>
+        </form>
+    </div>
+    <script src="/network-bg.js"></script>
+    <script>
+    if (new URLSearchParams(window.location.search).get('error')) {
+        const errorMsg = document.getElementById('error-msg')
+        errorMsg.style.display = 'block'
+        window.history.replaceState({}, '', '/')
+        setTimeout(() => {
+            errorMsg.style.display = 'none'
+        }, 3000)
+    }
+    </script>
+</body>
+</html>
