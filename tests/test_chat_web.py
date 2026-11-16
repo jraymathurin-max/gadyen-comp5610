@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-os.environ.setdefault("SECRET_KEY", "test-secret")
+os.environ.setdefault("SECRET_KEY", "test-secret-" + "x" * 40)  # server requires >= 32 chars
 os.environ.setdefault("GEMINI_API_KEY", "test-key")
 
 

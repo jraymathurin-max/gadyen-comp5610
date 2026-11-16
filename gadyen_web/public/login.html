@@ -46,15 +46,6 @@
         </form>
     </div>
     <script src="/network-bg.js"></script>
-    <script>
-    if (new URLSearchParams(window.location.search).get('error')) {
-        const errorMsg = document.getElementById('error-msg')
-        errorMsg.style.display = 'block'
-        window.history.replaceState({}, '', '/')
-        setTimeout(() => {
-            errorMsg.style.display = 'none'
-        }, 3000)
-    }
-    </script>
+    <script src="/auth-messages.js"></script>
 </body>
 </html>
