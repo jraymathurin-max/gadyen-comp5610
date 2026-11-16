@@ -31,7 +31,8 @@ async function getBotReply(msg){
         return ""
     }
     const data = await res.json()
-    return data.reply
+    // 413 (too long) / 429 (rate limited) / 502 come back as {error: "..."}
+    return data.reply || data.error
 }
 
 sendBtn.onclick = async () => {
