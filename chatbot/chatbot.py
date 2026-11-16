@@ -16,7 +16,8 @@ from collections import OrderedDict
 from dotenv import load_dotenv
 
 from .memory import MemoryStore, make_memory_tools
-from .security import MAX_MESSAGE_CHARS, filter_output, looks_like_injection, redact_sensitive
+from .security import (MAX_MESSAGE_CHARS, filter_output, looks_like_injection, quotable_spans,
+                       redact_sensitive)
 
 load_dotenv()
 log = logging.getLogger("gadyen.security")
@@ -136,6 +137,10 @@ Include this, translated into the user's language, whenever you deliver the WISP
 - glossary_lookup(term, language): returns the approved translation and plain-language definition of a security term.
 """
 
+# Passages the model is told to reproduce (e.g. the disclaimer): not leaks.
+QUOTABLE = quotable_spans(system_instruction)
+
+
 
 def _new_chat(user_id):
     from google.genai import types
@@ -180,7 +185,7 @@ def get_reply(user_id, message):
         if len(chats) > MAX_CACHED_CHATS:
             chats.popitem(last=False)
     raw = chats[user_id].send_message(clean).text
-    reply, issues = filter_output(raw, system_instruction)
+    reply, issues = filter_output(raw, system_instruction, quotable=QUOTABLE)
     if issues:
         log.warning("output_filtered user=%s issues=%s", user_id, issues)
     return reply

@@ -19,8 +19,8 @@ from .security import MAX_MEMORY_ITEMS_PER_CATEGORY, validate_memory_entry
 
 log = logging.getLogger("gadyen.security")
 
-DEFAULT_PATH = os.getenv("GADYEN_MEMORY_FILE",
-                         os.path.join(os.path.expanduser("~"), ".gadyen", "user_memory.json"))
+DEFAULT_PATH = (os.getenv("GADYEN_MEMORY_FILE")   # empty value in .env -> default
+                or os.path.join(os.path.expanduser("~"), ".gadyen", "user_memory.json"))
 
 
 class MemoryStore:

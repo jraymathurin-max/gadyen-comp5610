@@ -27,7 +27,7 @@ from chatbot.security import (RateLimiter, filter_output, looks_like_injection, 
                               redact_sensitive, validate_registration)
 from database.database import get_table, check_user, add_user, check_username  # noqa: E402
 from gadyen_web import conversations as store  # noqa: E402
-from gadyen_web.chatbot import (ChatError, forget_conversation, get_reply,  # noqa: E402
+from gadyen_web.chatbot import (QUOTABLE, ChatError, forget_conversation, get_reply,  # noqa: E402
                                 system_instruction)
 from gadyen_web.languages import normalize_language, welcome_message  # noqa: E402
 
@@ -243,7 +243,7 @@ def chat():
                 to_model += ("\n\n[Note to assistant: sensitive data (" + ", ".join(kinds) +
                              ") was removed from this message. Remind the user not to share it.]")
             raw = get_reply(user_id, to_model, language, history, conversation_id)
-            reply, issues = filter_output(raw, system_instruction)
+            reply, issues = filter_output(raw, system_instruction, quotable=QUOTABLE)
             if issues:
                 security_log.warning("output_filtered user=%s issues=%s", user_id, issues)
         store.add_message(conversation_id, "bot", reply)

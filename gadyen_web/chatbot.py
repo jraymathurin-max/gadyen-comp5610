@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import re
 import threading
 
 from google import genai
@@ -8,7 +9,7 @@ from google.genai import errors as genai_errors
 from google.genai import types
 from dotenv import load_dotenv
 
-from chatbot.security import MAX_MEMORY_ITEMS_PER_CATEGORY, validate_memory_entry
+from chatbot.security import MAX_MEMORY_ITEMS_PER_CATEGORY, quotable_spans, validate_memory_entry
 from gadyen_web.languages import DEFAULT_LANGUAGE, language_name, normalize_language
 
 load_dotenv()
@@ -56,7 +57,8 @@ class ChatError(Exception):
 # -----------------------------
 # Stored per user: {"users": {"<user_id>": {"<category>": ["detail", ...]}}}
 # so one office can never read what another office told the agent.
-MEMORY_FILE = os.getenv("GADYEN_MEMORY_FILE", "gadyen_web_memory.json")
+# "or": an empty GADYEN_MEMORY_FILE= in .env must mean "use the default", not file ""
+MEMORY_FILE = os.getenv("GADYEN_MEMORY_FILE") or "gadyen_web_memory.json"
 _memory_lock = threading.Lock()
 
 
@@ -192,6 +194,13 @@ You have exactly two tools. Never call, mention, or pretend to use any other too
 - save_user_preference(category, detail): stores one non-sensitive interview answer about the office.
 - get_user_preferences(): returns the answers already saved for this office.
 """
+
+# Passages the model is told to reproduce (disclaimer, the question template).
+# The output leak filter ignores them, so normal answers are not blocked.
+_TEMPLATE = re.search(r"uses exactly this layout:\n(.*?)\n- Translate the labels",
+                      system_instruction, re.S)
+QUOTABLE = quotable_spans(system_instruction, extra=[_TEMPLATE.group(1)] if _TEMPLATE else [])
+
 
 
 def _make_tools(user_id):

@@ -321,3 +321,13 @@ def test_security_headers_present(web):
     assert "default-src 'self'" in r.headers["Content-Security-Policy"]
     assert r.headers["X-Frame-Options"] == "DENY"
     assert r.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_disclaimer_is_not_treated_as_a_leak():
+    from chatbot.chatbot import QUOTABLE, system_instruction
+    reply = ("Gadyen Safeguard produces a draft plan and general guidance. It is not legal advice "
+             "and does not guarantee compliance. The business owner must review, adapt, and sign "
+             "the final plan, and may consult a qualified professional.")
+    assert filter_output(reply, system_instruction, quotable=QUOTABLE) == (reply, [])
+    leaked = system_instruction[system_instruction.index("# Workflow"):][:1200]
+    assert filter_output(leaked, system_instruction, quotable=QUOTABLE)[1] == ["system_prompt_leak"]
