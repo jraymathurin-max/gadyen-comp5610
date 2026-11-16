@@ -12,6 +12,9 @@ const historyEmpty = document.getElementById("history-empty");
 const historyTitle = document.getElementById("history-title");
 const newChatBtn = document.getElementById("new-chat-btn");
 const historyToggle = document.getElementById("history-toggle");
+const accountBtn = document.getElementById("account-btn");
+const accountMenu = document.getElementById("account-menu");
+const logoutBtn = document.getElementById("logout-btn");
 
 /* ------------------------------------------------------------------
    Languages. The codes must match gadyen_web/languages.py on the server.
@@ -31,6 +34,7 @@ const LANGUAGES = [
 
 const UI = {
     en: {
+        signOut: "Sign out", account: "Account",
         newChat: "New conversation", history: "Earlier conversations", noHistory: "No earlier conversations yet.",
         deleteChat: "Delete conversation", confirmDelete: "Delete?", showHistory: "Show conversations",
         placeholder: "Type your message", send: "Send", typing: "Gadyen is writing",
@@ -43,6 +47,7 @@ const UI = {
         load: "The conversation could not be loaded. Refresh the page.",
     },
     es: {
+        signOut: "Cerrar sesión", account: "Cuenta",
         newChat: "Nueva conversación", history: "Conversaciones anteriores", noHistory: "Aún no hay conversaciones anteriores.",
         deleteChat: "Eliminar conversación", confirmDelete: "¿Eliminar?", showHistory: "Ver conversaciones",
         placeholder: "Escriba su mensaje", send: "Enviar", typing: "Gadyen está escribiendo",
@@ -55,6 +60,7 @@ const UI = {
         load: "No se pudo cargar la conversación. Actualice la página.",
     },
     zh: {
+        signOut: "退出登录", account: "账户",
         newChat: "新对话", history: "以前的对话", noHistory: "还没有以前的对话。",
         deleteChat: "删除对话", confirmDelete: "删除？", showHistory: "查看对话",
         placeholder: "请输入您的消息", send: "发送", typing: "Gadyen 正在输入",
@@ -67,6 +73,7 @@ const UI = {
         load: "无法加载对话。请刷新页面。",
     },
     tl: {
+        signOut: "Mag-sign out", account: "Account",
         newChat: "Bagong usapan", history: "Mga nakaraang usapan", noHistory: "Wala pang nakaraang usapan.",
         deleteChat: "Burahin ang usapan", confirmDelete: "Burahin?", showHistory: "Ipakita ang mga usapan",
         placeholder: "I-type ang inyong mensahe", send: "Ipadala", typing: "Nagsusulat si Gadyen",
@@ -79,6 +86,7 @@ const UI = {
         load: "Hindi ma-load ang usapan. I-refresh ang page.",
     },
     vi: {
+        signOut: "Đăng xuất", account: "Tài khoản",
         newChat: "Cuộc trò chuyện mới", history: "Các cuộc trò chuyện trước", noHistory: "Chưa có cuộc trò chuyện nào trước đây.",
         deleteChat: "Xóa cuộc trò chuyện", confirmDelete: "Xóa?", showHistory: "Xem các cuộc trò chuyện",
         placeholder: "Nhập tin nhắn của bạn", send: "Gửi", typing: "Gadyen đang soạn",
@@ -91,6 +99,7 @@ const UI = {
         load: "Không tải được cuộc trò chuyện. Hãy tải lại trang.",
     },
     ar: {
+        signOut: "تسجيل الخروج", account: "الحساب",
         newChat: "محادثة جديدة", history: "المحادثات السابقة", noHistory: "لا توجد محادثات سابقة بعد.",
         deleteChat: "حذف المحادثة", confirmDelete: "حذف؟", showHistory: "عرض المحادثات",
         placeholder: "اكتب رسالتك", send: "إرسال", typing: "Gadyen يكتب",
@@ -103,6 +112,7 @@ const UI = {
         load: "تعذّر تحميل المحادثة. حدّث الصفحة.",
     },
     fr: {
+        signOut: "Se déconnecter", account: "Compte",
         newChat: "Nouvelle conversation", history: "Conversations précédentes", noHistory: "Aucune conversation précédente pour le moment.",
         deleteChat: "Supprimer la conversation", confirmDelete: "Supprimer ?", showHistory: "Afficher les conversations",
         placeholder: "Écrivez votre message", send: "Envoyer", typing: "Gadyen écrit",
@@ -115,6 +125,7 @@ const UI = {
         load: "La conversation n'a pas pu être chargée. Actualisez la page.",
     },
     ko: {
+        signOut: "로그아웃", account: "계정",
         newChat: "새 대화", history: "이전 대화", noHistory: "이전 대화가 아직 없습니다.",
         deleteChat: "대화 삭제", confirmDelete: "삭제할까요?", showHistory: "대화 목록 보기",
         placeholder: "메시지를 입력하세요", send: "보내기", typing: "Gadyen이 작성 중입니다",
@@ -127,6 +138,7 @@ const UI = {
         load: "대화를 불러오지 못했습니다. 페이지를 새로 고치세요.",
     },
     pt: {
+        signOut: "Sair", account: "Conta",
         newChat: "Nova conversa", history: "Conversas anteriores", noHistory: "Ainda não há conversas anteriores.",
         deleteChat: "Excluir conversa", confirmDelete: "Excluir?", showHistory: "Ver conversas",
         placeholder: "Escreva a sua mensagem", send: "Enviar", typing: "Gadyen está escrevendo",
@@ -139,6 +151,7 @@ const UI = {
         load: "Não foi possível carregar a conversa. Atualize a página.",
     },
     ht: {
+        signOut: "Dekonekte", account: "Kont",
         newChat: "Nouvo konvèsasyon", history: "Ansyen konvèsasyon yo", noHistory: "Poko gen ansyen konvèsasyon.",
         deleteChat: "Efase konvèsasyon an", confirmDelete: "Efase?", showHistory: "Montre konvèsasyon yo",
         placeholder: "Ekri mesaj ou", send: "Voye", typing: "Gadyen ap ekri",
@@ -326,7 +339,7 @@ async function getBotReply(msg) {
         throw new ChatFailure("network");
     }
     if (res.status === 401) {
-        window.location.href = "/";
+        await leaveAfter401(res);
         return null;
     }
     let data = null;
@@ -458,7 +471,7 @@ async function loadConversations() {
     try {
         const res = await fetch("/conversations");
         if (res.status === 401) {
-            window.location.href = "/";
+            await leaveAfter401(res);
             return;
         }
         if (!res.ok) throw new Error("conversation list failed");
@@ -486,7 +499,7 @@ async function openConversation(id) {
     try {
         const res = await fetch("/conversations/" + encodeURIComponent(id) + "/messages");
         if (res.status === 401) {
-            window.location.href = "/";
+            await leaveAfter401(res);
             return;
         }
         if (!res.ok) throw new Error("conversation request failed");
@@ -508,7 +521,7 @@ async function deleteConversation(id) {
     try {
         const res = await fetch("/conversations/" + encodeURIComponent(id), { method: "DELETE" });
         if (res.status === 401) {
-            window.location.href = "/";
+            await leaveAfter401(res);
             return;
         }
         if (!res.ok && res.status !== 404) throw new Error("delete failed");
@@ -544,7 +557,7 @@ async function loadInitialGreeting() {
     try {
         const res = await fetch("/chat/welcome?lang=" + encodeURIComponent(currentLang));
         if (res.status === 401) {
-            window.location.href = "/";
+            await leaveAfter401(res);
             return;
         }
         if (!res.ok) throw new Error("welcome request failed");
@@ -559,6 +572,91 @@ async function loadInitialGreeting() {
 }
 
 /* ------------------------------------------------------------------
+   Account menu, sign-out, and automatic sign-out after inactivity.
+   The server enforces the same time limit (see enforce_idle_timeout in
+   server.py); this timer only makes the page react at the right moment.
+   ------------------------------------------------------------------ */
+let idleLimitMs = 10 * 60 * 1000;
+let lastActivity = Date.now();
+let lastKeepAlive = Date.now();
+let signingOut = false;
+
+// A 401 means the session is gone. Tell the sign-in page why when we know.
+async function leaveAfter401(res) {
+    let idle = false;
+    try {
+        const data = await res.clone().json();
+        idle = !!data && data.reason === "idle";
+    } catch (e) { /* not JSON */ }
+    window.location.href = idle ? "/?error=idle" : "/";
+}
+
+async function signOut(reason) {
+    if (signingOut) return;
+    signingOut = true;
+    try {
+        await fetch("/logout", { method: "POST" });
+    } catch (e) { /* the server ends idle sessions by itself anyway */ }
+    window.location.href = reason === "idle" ? "/?error=idle" : "/";
+}
+
+async function loadAccount() {
+    try {
+        const res = await fetch("/me");
+        if (res.status === 401) {
+            await leaveAfter401(res);
+            return;
+        }
+        if (!res.ok) return;
+        const me = await res.json();
+        const name = String(me.name || me.username || "");
+        document.getElementById("account-name").textContent = name;
+        document.getElementById("account-full").textContent = name;
+        document.getElementById("account-user").textContent = me.username ? "@" + me.username : "";
+        document.getElementById("account-initial").textContent = name.trim().charAt(0).toUpperCase() || "?";
+        if (Number(me.idle_seconds) > 0) idleLimitMs = Number(me.idle_seconds) * 1000;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function closeAccountMenu() {
+    accountMenu.hidden = true;
+    accountBtn.setAttribute("aria-expanded", "false");
+}
+
+accountBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = accountMenu.hidden;
+    accountMenu.hidden = !open;
+    accountBtn.setAttribute("aria-expanded", open ? "true" : "false");
+});
+accountMenu.addEventListener("click", (event) => event.stopPropagation());
+document.addEventListener("click", closeAccountMenu);
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAccountMenu();
+});
+logoutBtn.addEventListener("click", () => signOut("user"));
+
+// Any key, click, tap, scroll or pointer movement counts as activity.
+function noteActivity() {
+    const now = Date.now();
+    if (now - lastActivity >= idleLimitMs) return;   // too late: let the timer sign out
+    lastActivity = now;
+    // Tell the server the user is still here, at most every two minutes.
+    if (now - lastKeepAlive > 120000) {
+        lastKeepAlive = now;
+        fetch("/me").then(res => { if (res.status === 401) leaveAfter401(res); }).catch(() => {});
+    }
+}
+["keydown", "pointerdown", "pointermove", "wheel", "touchstart", "scroll"].forEach(type => {
+    window.addEventListener(type, noteActivity, { passive: true, capture: true });
+});
+setInterval(() => {
+    if (Date.now() - lastActivity >= idleLimitMs) signOut("idle");
+}, 5000);
+
+/* ------------------------------------------------------------------
    Language choice
    ------------------------------------------------------------------ */
 function applyLanguage(code) {
@@ -571,6 +669,8 @@ function applyLanguage(code) {
     userInput.dir = lang && lang.rtl ? "rtl" : "auto";
     sendBtn.textContent = t("send");
     document.getElementById("lang-label").textContent = t("language");
+    logoutBtn.textContent = t("signOut");
+    accountBtn.setAttribute("aria-label", t("account"));
     newChatBtn.textContent = "+ " + t("newChat");
     historyTitle.textContent = t("history");
     historyEmpty.textContent = t("noHistory");
@@ -614,6 +714,8 @@ function init() {
         langOptions.appendChild(button);
     });
     langSelect.addEventListener("change", () => chooseLanguage(langSelect.value));
+
+    loadAccount();
 
     // Remove the old copy of the chat that earlier versions kept in the browser
     try { localStorage.removeItem("chatHistory"); } catch (e) { /* ignore */ }
