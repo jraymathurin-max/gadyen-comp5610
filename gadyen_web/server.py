@@ -25,11 +25,10 @@ from mysql.connector import errors  # noqa: E402
 
 from chatbot.security import (RateLimiter, filter_output, looks_like_injection,  # noqa: E402
                               redact_sensitive, validate_registration)
-from database.database import (  # noqa: E402
-    get_table, check_user, add_user, check_username,
-    save_chat_message, get_chat_history,
-)
-from gadyen_web.chatbot import ChatError, get_reply, system_instruction  # noqa: E402
+from database.database import get_table, check_user, add_user, check_username  # noqa: E402
+from gadyen_web import conversations as store  # noqa: E402
+from gadyen_web.chatbot import (ChatError, forget_conversation, get_reply,  # noqa: E402
+                                system_instruction)
 from gadyen_web.languages import normalize_language, welcome_message  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -64,6 +63,7 @@ app.config.update(
 # Create the tables automatically when the server starts
 try:
     get_table()
+    store.ensure_tables()
 except Exception as e:  # noqa: BLE001
     security_log.error("could not create tables: %s", type(e).__name__)
 
@@ -103,7 +103,7 @@ def security_headers(resp):
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
-    if request.path.startswith(("/chat", "/dashboard")):
+    if request.path.startswith(("/chat", "/dashboard", "/conversations")):
         resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -178,6 +178,18 @@ def logout():
 
 
 # ------------------------------------------------------------------ chat
+def _conversation_id(value):
+    """A positive integer id, or None for 'start a new conversation'."""
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return None
+    return number if number > 0 else None
+
+
+
 @app.post("/chat")
 def chat():
     """Always answers with JSON, so the page can show a real reason on failure."""
@@ -190,6 +202,7 @@ def chat():
     message = data.get("message")
     message = message.strip() if isinstance(message, str) else ""
     language = normalize_language(data.get("language"))
+    conversation_id = _conversation_id(data.get("conversation_id"))
 
     if not message:
         return jsonify(error="empty_message"), 400
@@ -204,11 +217,23 @@ def chat():
     if kinds:
         security_log.warning("input_redacted user=%s kinds=%s", user_id, kinds)
 
+    conversation = None
     try:
-        # History BEFORE this message: lets the agent recover its context
-        # after a server restart or a language switch.
-        history = get_chat_history(user_id, limit=30)
-        save_chat_message(user_id, "user", clean)
+        if conversation_id is None:
+            # First message of a new conversation: it appears in the history now.
+            # The title is built from the REDACTED text, so no PII in the side panel.
+            conversation = store.create_conversation(user_id, clean)
+            conversation_id = conversation["id"]
+            history = []
+        elif not store.owns_conversation(user_id, conversation_id):
+            security_log.warning("conversation_access_denied user=%s conversation=%s",
+                                 user_id, conversation_id)
+            return jsonify(error="not_found"), 404
+        else:
+            # History BEFORE this message: lets the agent recover its context
+            # after a server restart or a language switch.
+            history = store.get_messages(user_id, conversation_id, limit=30)
+        store.add_message(conversation_id, "user", clean)
         if looks_like_injection(message):
             security_log.warning("prompt_injection_blocked user=%s", user_id)
             reply = INJECTION_REPLY       # the model is never called
@@ -217,29 +242,62 @@ def chat():
             if kinds:
                 to_model += ("\n\n[Note to assistant: sensitive data (" + ", ".join(kinds) +
                              ") was removed from this message. Remind the user not to share it.]")
-            raw = get_reply(user_id, to_model, language, history)
+            raw = get_reply(user_id, to_model, language, history, conversation_id)
             reply, issues = filter_output(raw, system_instruction)
             if issues:
                 security_log.warning("output_filtered user=%s issues=%s", user_id, issues)
-        save_chat_message(user_id, "bot", reply)
+        store.add_message(conversation_id, "bot", reply)
     except ChatError as exc:
         app.logger.error("chat failed for user %s: %s (%s)", user_id, exc.code, exc)
-        return jsonify(error=exc.code), exc.status
+        return jsonify(error=exc.code, conversation_id=conversation_id), exc.status
     except Exception:
         app.logger.exception("chat failed for user %s", user_id)
-        return jsonify(error="unavailable"), 500
-    return jsonify(reply=reply)
+        return jsonify(error="unavailable", conversation_id=conversation_id), 500
+    return jsonify(reply=reply, conversation_id=conversation_id,
+                   title=conversation["title"] if conversation else None)
 
 
-@app.get("/chat/history")
-def chat_history():
+@app.get("/conversations")
+def conversations_list():
+    """The user's earlier conversations, newest first, for the side panel."""
     if "user_id" not in session:
         return jsonify(error="not_logged_in"), 401
+    user_id = session["user_id"]
     try:
-        return jsonify(get_chat_history(session["user_id"]))
+        store.import_earlier_chat(user_id)
+        return jsonify(store.list_conversations(user_id))
     except Exception:
-        app.logger.exception("could not load chat history")
+        app.logger.exception("could not list conversations")
         return jsonify(error="unavailable"), 500
+
+
+@app.get("/conversations/<int:conversation_id>/messages")
+def conversation_messages(conversation_id):
+    if "user_id" not in session:
+        return jsonify(error="not_logged_in"), 401
+    user_id = session["user_id"]
+    try:
+        if not store.owns_conversation(user_id, conversation_id):
+            return jsonify(error="not_found"), 404
+        return jsonify(store.get_messages(user_id, conversation_id))
+    except Exception:
+        app.logger.exception("could not load conversation")
+        return jsonify(error="unavailable"), 500
+
+
+@app.delete("/conversations/<int:conversation_id>")
+def conversation_delete(conversation_id):
+    if "user_id" not in session:
+        return jsonify(error="not_logged_in"), 401
+    user_id = session["user_id"]
+    try:
+        if not store.delete_conversation(user_id, conversation_id):
+            return jsonify(error="not_found"), 404
+        forget_conversation(user_id, conversation_id)
+    except Exception:
+        app.logger.exception("could not delete conversation")
+        return jsonify(error="unavailable"), 500
+    return jsonify(deleted=True)
 
 
 @app.get("/chat/welcome")

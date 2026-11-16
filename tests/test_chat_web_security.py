@@ -14,8 +14,11 @@ def app(monkeypatch, tmp_path):
     checks = []
     sys.modules["database.database"].check_user = (
         lambda u, p: checks.append(u) or (1 if p == "Correct-Horse-Battery-9" else None))
-    sys.modules.pop("gadyen_web.server", None)
+    for name in ("gadyen_web.server", "gadyen_web.conversations"):
+        sys.modules.pop(name, None)
     import gadyen_web.chatbot as bot
+    import gadyen_web.conversations as store
+    db.patch_store(monkeypatch, store)
     import gadyen_web.server as server
 
     bot.chats.clear()
@@ -51,10 +54,35 @@ def test_pii_never_reaches_db_or_model(app):
     c = logged_in(app)
     c.post("/chat", json={"message": "Client SSN 123-45-6789, card 4111 1111 1111 1111"})
     stored = " ".join(m["content"] for m in app.db.messages)
+    stored += " ".join(c["title"] for c in app.db.conversations.values())   # side-panel titles
     sent = " ".join(app.created[0].sent)
     for secret in ("123-45-6789", "4111 1111 1111 1111"):
         assert secret not in stored and secret not in sent
     assert "[REDACTED-SSN]" in sent
+
+
+def test_cannot_post_into_another_users_conversation(app):
+    app.script.append("ok")
+    other = app.db.create(99, "someone else's chat")
+    r = logged_in(app).post("/chat", json={"message": "hi", "conversation_id": other["id"]})
+    assert r.status_code == 404 and app.created == []
+    assert not any(m["conversation_id"] == other["id"] for m in app.db.messages)
+
+
+def test_cannot_read_or_delete_another_users_conversation(app):
+    other = app.db.create(99, "someone else's chat")
+    c = logged_in(app)
+    assert c.get(f"/conversations/{other['id']}/messages").status_code == 404
+    assert c.delete(f"/conversations/{other['id']}").status_code == 404
+    assert other["id"] in app.db.conversations
+
+
+def test_cross_origin_delete_blocked(app):
+    app.script.append("ok")
+    c = logged_in(app)
+    cid = c.post("/chat", json={"message": "hi"}).get_json()["conversation_id"]
+    r = c.delete(f"/conversations/{cid}", headers={"Origin": "https://evil.example"})
+    assert r.status_code == 403 and cid in app.db.conversations
 
 
 def test_system_prompt_leak_is_replaced(app):
