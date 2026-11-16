@@ -37,7 +37,7 @@
 
             <div class="input-box">
                 <input type="password" name="password" placeholder="Password" aria-label="Password"
-                       autocomplete="new-password" required>
+                       autocomplete="new-password" required minlength="12" maxlength="72">
             </div>
 
             <button type="submit" class="create_account-btn">Create an account</button>
@@ -47,15 +47,6 @@
         </form>
     </div>
     <script src="/network-bg.js"></script>
-    <script>
-    if (new URLSearchParams(window.location.search).get('error')) {
-        const errorMsg = document.getElementById('error-username-taken')
-        errorMsg.style.display = 'block'
-        window.history.replaceState({}, '', '/register.html')
-        setTimeout(() => {
-            errorMsg.style.display = 'none'
-        }, 3000)
-    }
-    </script>
+    <script src="/auth-messages.js"></script>
 </body>
 </html>

@@ -10,5 +10,5 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt bandit pip-audit
       - run: pytest -q
-      - run: bandit -q -r gadyen chatbot database -ll
+      - run: bandit -q -r gadyen chatbot database gadyen_web -ll
       - run: pip-audit -r requirements.txt

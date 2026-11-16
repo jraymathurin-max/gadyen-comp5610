@@ -5,10 +5,12 @@ two agents in this repository:
 
 | Agent | Code | LLM | What it can do |
 |---|---|---|---|
-| **Chat agent** (user-facing web app) | `database/server.py`, `chatbot/` | Gemini | Interviews the office owner, reads/writes that owner's saved office profile |
+| **Chat agent — deployed** (Render, gunicorn) | `gadyen_web/` | Gemini | Interviews the office owner in the selected language, reads/writes that owner's saved office profile |
+| **Chat agent — original** (local dev) | `database/server.py`, `chatbot/` | Gemini | Same agent, earlier version |
 | **Assessment agent** (scanner API) | `gadyen/` | Claude | Runs DNS/TLS/HTTP/port checks against the practice's verified domains |
 
-Run all security tests with `pytest -q` (no MySQL or API keys needed — fakes are used).
+Both chat apps use the same guard module, `chatbot/security.py`, so every control below applies
+to both unless noted. Run all security tests with `pytest -q` (no MySQL or API keys needed — fakes are used).
 
 ---
 
@@ -82,8 +84,11 @@ All security events are logged to the `gadyen.security` logger (`login_failed`, 
 
 ```
 $ pytest -q
-71 passed in 1.05s
+95 passed in 1.46s
 ```
+
+Security tests: `tests/test_chatbot_security.py` (original app + shared guards),
+`tests/test_chat_web_security.py` (deployed `gadyen_web` app), `tests/test_agent_security.py` (scanner).
 
 Selected checks and what each proves:
 
@@ -103,6 +108,7 @@ Selected checks and what each proves:
 | `test_server_refuses_to_start_without_strong_secret` | Weak `SECRET_KEY` → startup error |
 | `test_injected_out_of_scope_calls_are_refused` (scanner) | Injected scans of `internal.corp`, `169.254.169.254` are refused by `PolicyGuard` |
 | `test_evidence_chain_detects_tampering` (scanner) | Editing a stored scan result breaks the hash chain |
+| `gadyen_web`: `test_injection_is_answered_without_calling_the_model`, `test_pii_never_reaches_db_or_model`, `test_system_prompt_leak_is_replaced`, `test_chat_rate_limit`, `test_login_lockout_and_session_reset`, `test_cross_origin_post_blocked`, `test_memory_gate_blocks_pii_and_unknown_categories`, `test_tool_calls_and_output_are_capped` | The same controls hold in the deployed app |
 
 ### 3.2 Live run (Flask test client, fake DB/LLM) — security log output
 
@@ -123,7 +129,7 @@ injection          -> "I can't follow instructions that try to change my role or
 
 ### 3.3 Static analysis in CI
 
-`.github/workflows/ci.yml` runs `pytest`, `bandit -r gadyen chatbot database -ll` (0 medium/high
+`.github/workflows/ci.yml` runs `pytest`, `bandit -r gadyen chatbot database gadyen_web -ll` (0 medium/high
 findings) and `pip-audit` on every push.
 
 ---
@@ -136,7 +142,11 @@ findings) and `pip-audit` on every push.
   cross-user tool. Redaction can miss unusual PII formats.
 - **Gemini is a third party.** Redacted chat text is sent to Google. Use a paid tier / data
   processing terms that exclude training before handling real client offices.
-- **Rate limits are in-memory**, per process. With multiple workers, move them to Redis.
+- **Rate limits are in-memory**, per process. `gunicorn.conf.py` runs one worker, so they hold on
+  Render today; with more workers, move them to Redis. On Render the client IP is taken from the
+  first `X-Forwarded-For` hop.
+- **Memory file on Render** (`gadyen_web_memory.json`) is on the instance's disk and is lost on
+  redeploy; moving it into MySQL would make it durable.
 - **No MFA yet** for web logins (required for a production FTC Safeguards deployment, 16 CFR 314.4(c)(5)).
 - **HTTPS** must be provided by a reverse proxy; then set `SESSION_COOKIE_SECURE=1`.
 - The scanner API still uses a single development key (`X-Api-Key`).
