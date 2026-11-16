@@ -18,8 +18,9 @@ REQUEST_TIMEOUT_MS = int(os.getenv("GEMINI_TIMEOUT_MS", "45000"))
 HISTORY_TURNS = 30          # how many stored messages are replayed to the model
 MAX_TURN_CHARS = 6000       # cap on each replayed message
 
-# One live chat per user: {user_id: {"language": code, "chat": Chat}}
+# One live chat per conversation: {(user_id, conversation_id): {"language": code, "chat": Chat}}
 chats = {}
+MAX_LIVE_CHATS = 300        # older ones are rebuilt from the database when needed
 _chats_lock = threading.Lock()
 _client = None
 
@@ -279,20 +280,28 @@ def _new_chat(user_id, language, history):
     )
 
 
-def _chat_for(user_id, language, history):
+def _chat_for(key, language, history):
     """Return the live chat, rebuilding it from stored history after a restart
-    or when the user switches language."""
+    or when the user switches language. key is (user_id, conversation_id)."""
     with _chats_lock:
-        entry = chats.get(user_id)
+        entry = chats.get(key)
         if entry is None or entry["language"] != language:
-            entry = {"language": language, "chat": _new_chat(user_id, language, history)}
-            chats[user_id] = entry
+            entry = {"language": language, "chat": _new_chat(key[0], language, history)}
+            chats.pop(key, None)
+            chats[key] = entry
+            while len(chats) > MAX_LIVE_CHATS:
+                chats.pop(next(iter(chats)))        # drop the oldest
         return entry["chat"]
 
 
-def _forget_chat(user_id):
+def _forget_chat(key):
     with _chats_lock:
-        chats.pop(user_id, None)
+        chats.pop(key, None)
+
+
+def forget_conversation(user_id, conversation_id):
+    """Drop the live chat of a conversation (used when it is deleted)."""
+    _forget_chat((user_id, conversation_id))
 
 
 def _response_text(response):
@@ -302,21 +311,23 @@ def _response_text(response):
         return ""
 
 
-def get_reply(user_id, message, language=DEFAULT_LANGUAGE, history=None):
+def get_reply(user_id, message, language=DEFAULT_LANGUAGE, history=None, conversation_id=None):
     """Send one user message and return the agent's text.
 
+    conversation_id: which conversation this message belongs to.
     history: stored messages BEFORE this one (oldest first); used only when the
     live chat has to be rebuilt. Raises ChatError when no answer can be given.
     """
     language = normalize_language(language)
+    key = (user_id, conversation_id)
     last_problem = "empty"
     for attempt in (1, 2):
         try:
-            response = _chat_for(user_id, language, history).send_message(message)
+            response = _chat_for(key, language, history).send_message(message)
         except ChatError:
             raise
         except genai_errors.APIError as exc:
-            _forget_chat(user_id)
+            _forget_chat(key)
             code = getattr(exc, "code", None)
             log.error("Gemini API error (attempt %s): %s", attempt, exc)
             if code == 429:
@@ -327,7 +338,7 @@ def get_reply(user_id, message, language=DEFAULT_LANGUAGE, history=None):
             raise ChatError("unavailable", 502, str(exc)) from exc
         except Exception as exc:
             # e.g. the model asked for a tool that does not exist (KeyError in the SDK)
-            _forget_chat(user_id)
+            _forget_chat(key)
             log.exception("Chat failed (attempt %s)", attempt)
             last_problem = "unavailable"
             if attempt == 1:
@@ -342,7 +353,7 @@ def get_reply(user_id, message, language=DEFAULT_LANGUAGE, history=None):
         if getattr(response, "candidates", None):
             reason = getattr(response.candidates[0], "finish_reason", None)
         log.warning("Empty model answer (attempt %s), finish_reason=%s", attempt, reason)
-        _forget_chat(user_id)
+        _forget_chat(key)
         last_problem = "empty"
     raise ChatError(last_problem, 502, "no usable answer from the model")
 

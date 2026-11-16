@@ -11,6 +11,10 @@
 
     <div class="chat-container">
         <header>
+            <button id="history-toggle" class="history-toggle" type="button"
+                    aria-label="Show conversations" aria-expanded="false" aria-controls="sidebar">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+            </button>
             <div class="brand">
                 <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M12 2 20 5.5v6.2c0 5-3.3 8.6-8 10.3-4.7-1.7-8-5.3-8-10.3V5.5Z"/>
@@ -28,18 +32,29 @@
             </label>
         </header>
 
-        <div id="chat-box" class="chat-box" role="log" aria-live="polite"></div>
+        <div class="workspace">
+            <aside id="sidebar" class="sidebar">
+                <button id="new-chat-btn" class="new-chat" type="button">+ New conversation</button>
+                <h2 id="history-title">Earlier conversations</h2>
+                <ul id="history-list" class="history-list"></ul>
+                <p id="history-empty" class="history-empty">No earlier conversations yet.</p>
+            </aside>
 
-        <!-- Shown until the customer has picked a language -->
-        <div id="lang-picker" class="lang-picker" hidden>
-            <h2>Choose your language</h2>
-            <div id="lang-options" class="lang-options"></div>
-        </div>
+            <div class="conversation">
+                <div id="chat-box" class="chat-box" role="log" aria-live="polite"></div>
 
-        <div class="input-area">
-            <input type="text" id="user-input" maxlength="4000" autocomplete="off"
-                   placeholder="Type your message" aria-label="Type your message" dir="auto"/>
-            <button id="send-btn" type="button">Send</button>
+                <!-- Shown until the customer has picked a language -->
+                <div id="lang-picker" class="lang-picker" hidden>
+                    <h2>Choose your language</h2>
+                    <div id="lang-options" class="lang-options"></div>
+                </div>
+
+                <div class="input-area">
+                    <input type="text" id="user-input" maxlength="4000" autocomplete="off"
+                           placeholder="Type your message" aria-label="Type your message" dir="auto"/>
+                    <button id="send-btn" type="button">Send</button>
+                </div>
+            </div>
         </div>
     </div>
 
