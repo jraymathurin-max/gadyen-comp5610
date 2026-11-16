@@ -111,3 +111,21 @@ uvicorn gadyen.api:app --reload
 ## Important Notes:
 1. Most of the html, css is in a folder named "public", since the internet needs to be able to read the files. "dashboard is in a separate folder since it should only be accessed if the user puts in their correct username and password
 2. Created another .env folder with my GEMINI_API_KEY in chatbot folder
+
+# Deployed chat interface (gadyen_web)
+
+The interface deployed on Render is `gadyen_web/` (start command `gunicorn gadyen_web.server:app`,
+settings in `gunicorn.conf.py`). It reuses `database/database.py` for accounts and
+`chatbot/security.py` for the guards; the files in `database/` and `chatbot/` are the original
+local application.
+
+| Path | Purpose |
+|---|---|
+| `gadyen_web/server.py` | Routes: sign-in, sign-out, chat, conversations, account (`/me`); rate limits, idle sign-out, security headers |
+| `gadyen_web/chatbot.py`, `gadyen_web/languages.py` | Chat agent and the ten supported languages |
+| `gadyen_web/conversations.py`, `gadyen_web/accounts.py` | Conversation history and account name, per signed-in user |
+| `gadyen_web/public/`, `gadyen_web/views/` | Sign-in, registration and chat pages |
+
+Environment variables on Render: `GEMINI_API_KEY`, `SECRET_KEY` (32+ characters, the server refuses
+to start otherwise), the `MYSQL_*` values, and optionally `GEMINI_MODEL` and `IDLE_TIMEOUT_SECONDS`
+(default 600). `pytest -q` runs all tests without a database or an API key.

@@ -64,7 +64,7 @@ to both unless noted. Run all security tests with `pytest -q` (no MySQL or API k
 | T5 | **Secret / PII exposure** | Pasted SSNs, card numbers, API keys stored in MySQL and sent to Gemini | Redaction (SSN, ITIN, EIN, Luhn-checked cards, bank/routing, Google/OpenAI/Anthropic/AWS/GitHub keys, private keys, `password:` in 4 languages) **before** DB write and **before** LLM; replies also redacted | `security.redact_sensitive`, `server.chat`, `chatbot.prepare_message`, `security.filter_output` |
 | T6 | **System-prompt disclosure** | Prompt-only defense | Output guard: if ≥3 eight-word runs from the system prompt appear in a reply, it is replaced | `security.filter_output` |
 | T7 | **Credential attacks** | No login throttling; no password policy; `bcrypt>=5` raises on >72-byte passwords (500 error) | 5 failed logins / 15 min per IP+username (lockout before DB check); 12–72 char password policy; registration rate limit | `server.login`, `server.register`, `security.validate_registration` |
-| T8 | **Session attacks / CSRF** | No session regeneration, no logout, SameSite=Lax, no origin check | `session.clear()` on login (fixation), `/logout`, `SameSite=Strict`, optional `Secure`, 8 h lifetime, cross-origin POSTs → 403 | `server.reject_cross_origin_posts`, `server.login` |
+| T8 | **Session attacks / CSRF** | No session regeneration, no logout, SameSite=Lax, no origin check | `session.clear()` on login (fixation), `/logout` with a sign-out button in the account menu, server-side sign-out after 10 minutes without a request (`IDLE_TIMEOUT_SECONDS`), `SameSite=Strict`, optional `Secure`, 8 h maximum lifetime, cross-origin POSTs → 403 | `server.reject_cross_origin_posts`, `server.enforce_idle_timeout`, `server.login` |
 | T9 | **Remote code execution via debugger** | `app.run(debug=True)` — Werkzeug debugger gives a Python shell | Debug off unless `FLASK_DEBUG=1`; binds `127.0.0.1` by default | `server.__main__` |
 | T10 | **Weak / missing secret key** | `SECRET_KEY` could be empty → forgeable session cookies | App refuses to start unless `SECRET_KEY` ≥ 32 chars | `server._require_secret_key` |
 | T11 | **Resource / cost abuse** | Unlimited message size and rate → unbounded Gemini bill; unbounded in-memory chat cache | 10 msgs/min and 200/day per user (429); 2 000-char input cap (413); 64 KB body cap; `max_output_tokens=2048`; LRU cache of 500 chats | `server.chat`, `chatbot.py` |
@@ -84,11 +84,11 @@ All security events are logged to the `gadyen.security` logger (`login_failed`, 
 
 ```
 $ pytest -q
-95 passed in 1.46s
+118 passed
 ```
 
 Security tests: `tests/test_chatbot_security.py` (original app + shared guards),
-`tests/test_chat_web_security.py` (deployed `gadyen_web` app), `tests/test_agent_security.py` (scanner).
+`tests/test_chat_web_security.py` and `tests/test_account_session.py` (deployed `gadyen_web` app), `tests/test_agent_security.py` (scanner).
 
 Selected checks and what each proves:
 
@@ -102,6 +102,8 @@ Selected checks and what each proves:
 | `test_system_prompt_leak_is_blocked` | A reply that copies the system prompt is replaced |
 | `test_login_brute_force_lockout` | 6th attempt is locked **even with the right password**, DB checked only 5 times |
 | `test_session_is_regenerated_on_login` | Pre-login session data is discarded |
+| `test_idle_session_is_closed_by_the_server`, `test_idle_chat_message_never_reaches_the_model` (`gadyen_web`) | After 10 minutes without a request the session is cleared on the server; a late message gets 401 and the model is not called |
+| `test_sign_out_ends_the_session`, `test_cross_origin_sign_out_is_refused` (`gadyen_web`) | Sign-out really ends the session; another site cannot sign the user out |
 | `test_cross_origin_post_is_blocked` | `Origin: https://evil.example` → 403, credentials never checked |
 | `test_chat_rate_limit_protects_llm_budget` | Messages 11–12 in a minute → 429; LLM called exactly 10 times |
 | `test_oversized_and_malformed_messages_rejected` | 2 001 chars → 413; non-JSON → 400; LLM never called |
