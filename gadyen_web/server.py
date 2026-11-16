@@ -2,7 +2,8 @@
 
 Security hardening (shared controls live in chatbot/security.py, see SECURITY.md):
   * Startup: refuses to run without a strong SECRET_KEY; debugger off unless FLASK_DEBUG=1.
-  * AuthN: password policy, login brute-force lockout, session reset on login, logout.
+  * AuthN: password policy, login brute-force lockout, session reset on login, logout,
+    automatic sign-out after 10 minutes without activity.
   * AuthZ: user_id comes only from the signed session cookie.
   * CSRF: cross-origin POSTs rejected + SameSite=Strict cookies.
   * Abuse: per-user chat rate limits, message size cap, request body cap.
@@ -14,6 +15,7 @@ Security hardening (shared controls live in chatbot/security.py, see SECURITY.md
 import logging
 import os
 import re
+import time
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
@@ -26,6 +28,7 @@ from mysql.connector import errors  # noqa: E402
 from chatbot.security import (RateLimiter, filter_output, looks_like_injection,  # noqa: E402
                               redact_sensitive, validate_registration)
 from database.database import get_table, check_user, add_user, check_username  # noqa: E402
+from gadyen_web import accounts  # noqa: E402
 from gadyen_web import conversations as store  # noqa: E402
 from gadyen_web.chatbot import (QUOTABLE, ChatError, forget_conversation, get_reply,  # noqa: E402
                                 system_instruction)
@@ -36,6 +39,8 @@ security_log = logging.getLogger("gadyen.security")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAX_MESSAGE_CHARS = 4000
+# A signed-in session ends after this long without any request (default 10 minutes).
+IDLE_TIMEOUT_SECONDS = int(os.getenv("IDLE_TIMEOUT_SECONDS", "600"))
 EMAIL_RE = re.compile(r"^[^@\s<>]{1,64}@[^@\s<>]{1,190}\.[A-Za-z]{2,24}$")
 
 INJECTION_REPLY = ("I can't follow instructions that try to change my role or reveal my "
@@ -95,6 +100,27 @@ def reject_cross_origin_posts():
     return None
 
 
+@app.before_request
+def enforce_idle_timeout():
+    """Sign the user out on the server after IDLE_TIMEOUT_SECONDS without a request.
+    The page runs the same timer, but the server decides: a stolen or forgotten
+    session cookie stops working even if the browser never runs our script."""
+    if "user_id" not in session:
+        return None
+    now = time.time()
+    last_seen = session.get("last_seen")
+    if isinstance(last_seen, (int, float)) and now - last_seen > IDLE_TIMEOUT_SECONDS:
+        security_log.info("session_idle_timeout user=%s", session.get("user_id"))
+        session.clear()
+        if request.path == "/dashboard":
+            return redirect("/?error=idle")
+        if request.path.startswith(("/chat", "/conversations", "/me")):
+            return jsonify(error="not_logged_in", reason="idle"), 401
+        return None
+    session["last_seen"] = now
+    return None
+
+
 @app.after_request
 def security_headers(resp):
     resp.headers.setdefault("Content-Security-Policy",
@@ -103,7 +129,7 @@ def security_headers(resp):
     resp.headers.setdefault("X-Frame-Options", "DENY")
     resp.headers.setdefault("X-Content-Type-Options", "nosniff")
     resp.headers.setdefault("Referrer-Policy", "same-origin")
-    if request.path.startswith(("/chat", "/dashboard", "/conversations")):
+    if request.path.startswith(("/chat", "/dashboard", "/conversations", "/me")):
         resp.headers["Cache-Control"] = "no-store"
     return resp
 
@@ -164,6 +190,7 @@ def login():
         session.clear()               # prevent session fixation
         session.permanent = True
         session["user_id"] = user_id
+        session["last_seen"] = time.time()
         security_log.info("login_ok user=%s ip=%s", user_id, client_ip())
         return redirect("/dashboard")
     login_failures.hit(key)
@@ -173,8 +200,28 @@ def login():
 
 @app.post("/logout")
 def logout():
+    if "user_id" in session:
+        security_log.info("logout user=%s", session["user_id"])
     session.clear()
     return redirect("/")
+
+
+@app.get("/me")
+def me():
+    """Name of the signed-in user for the account menu. Also used by the page as a
+    keep-alive while the user is active."""
+    if "user_id" not in session:
+        return jsonify(error="not_logged_in"), 401
+    try:
+        profile = accounts.get_profile(session["user_id"])
+    except Exception:
+        app.logger.exception("could not load the account profile")
+        return jsonify(error="unavailable"), 500
+    if profile is None:
+        session.clear()
+        return jsonify(error="not_logged_in"), 401
+    return jsonify(name=profile["name"], username=profile["username"],
+                   idle_seconds=IDLE_TIMEOUT_SECONDS)
 
 
 # ------------------------------------------------------------------ chat

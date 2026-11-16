@@ -137,6 +137,98 @@ header h1 {
     cursor: pointer;
 }
 
+/* ---------- account menu (name of the signed-in user, sign out) ---------- */
+.account {
+    position: relative;
+    flex: none;
+}
+
+.account-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    max-width: 210px;
+    font: inherit;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: #0a2140;
+    border: 1px solid var(--panel-edge);
+    border-radius: 8px;
+    padding: 5px 8px 5px 5px;
+    cursor: pointer;
+}
+.account-btn:hover { border-color: var(--signal); }
+.account-btn svg {
+    width: 16px;
+    height: 16px;
+    flex: none;
+    fill: none;
+    stroke: var(--text-dim);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.account-initial {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--guardian-blue-dark);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+.account-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.account-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    inset-inline-end: 0;
+    z-index: 5;
+    min-width: 220px;
+    max-width: 280px;
+    padding: 12px;
+    background: #0c2a52;
+    border: 1px solid var(--panel-edge);
+    border-radius: 12px;
+    box-shadow: 0 18px 40px rgba(0, 8, 24, 0.7);
+}
+.account-menu[hidden] { display: none; }
+
+.account-full {
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+.account-user {
+    margin-top: 2px;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    overflow-wrap: anywhere;
+}
+
+.logout-btn {
+    width: 100%;
+    margin-top: 12px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--guardian-blue-dark);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.logout-btn:hover { background: var(--guardian-blue); }
+
 /* ---------- layout: history panel + conversation ---------- */
 .workspace {
     flex: 1;
@@ -459,6 +551,8 @@ header h1 {
     .history-toggle { display: grid; place-items: center; }
     header { justify-content: flex-start; }
     .lang-switch { margin-inline-start: auto; }
+    .account-name, .account-btn svg { display: none; }
+    .account-btn { padding: 5px; }
     .sidebar {
         position: absolute;
         inset-block: 0;

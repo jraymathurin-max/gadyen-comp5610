@@ -30,6 +30,19 @@
                 <span class="visually-hidden" id="lang-label">Language</span>
                 <select id="lang-select" aria-labelledby="lang-label"></select>
             </label>
+            <div class="account">
+                <button id="account-btn" class="account-btn" type="button" aria-label="Account"
+                        aria-haspopup="true" aria-expanded="false" aria-controls="account-menu">
+                    <span id="account-initial" class="account-initial" aria-hidden="true"></span>
+                    <span id="account-name" class="account-name"></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg>
+                </button>
+                <div id="account-menu" class="account-menu" hidden>
+                    <p id="account-full" class="account-full" dir="auto"></p>
+                    <p id="account-user" class="account-user"></p>
+                    <button id="logout-btn" class="logout-btn" type="button">Sign out</button>
+                </div>
+            </div>
         </header>
 
         <div class="workspace">
