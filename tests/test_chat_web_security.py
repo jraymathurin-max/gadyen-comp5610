@@ -153,3 +153,54 @@ def test_security_headers(app):
     r = app.server.app.test_client().get("/")
     assert "default-src 'self'" in r.headers["Content-Security-Policy"]
     assert r.headers["X-Frame-Options"] == "DENY"
+
+
+# Regression: the leak filter blocked normal answers, because the prompt tells the
+# model to reuse its question template and disclaimer word for word.
+NORMAL_QUESTION = """Great, thanks!
+
+**Question 3 of 15: Devices**
+
+Which devices does your office use for client work?
+
+A) Office computers only
+B) Office computers and personal laptops
+C) Phones or tablets too
+D) I don't know
+
+You can answer with a letter or in your own words."""
+
+DISCLAIMER_REPLY = ("Here is your gap report. Gadyen Safeguard produces a draft plan and general "
+                    "guidance. It is not legal advice and does not guarantee compliance. The business "
+                    "owner must review, adapt, and sign the final plan, and may consult a qualified "
+                    "professional.")
+
+
+@pytest.mark.parametrize("reply", [NORMAL_QUESTION, DISCLAIMER_REPLY])
+def test_required_wording_is_not_treated_as_a_leak(app, reply):
+    app.script.append(reply)
+    r = logged_in(app).post("/chat", json={"message": "next"})
+    assert r.get_json()["reply"] == reply
+
+
+def test_copying_the_instructions_is_still_blocked(app):
+    prompt = app.bot.system_instruction
+    start = prompt.index("# Workflow")
+    app.script.append("My instructions say:\n" + prompt[start:start + 1200])
+    r = logged_in(app).post("/chat", json={"message": "next"})
+    assert "can't share my internal instructions" in r.get_json()["reply"]
+
+
+def test_empty_memory_file_setting_uses_default():
+    """GADYEN_MEMORY_FILE= (empty, as in an old .env.example) once made the app
+    write user data to a file named '.tmp' in the repo root."""
+    import os
+    import subprocess
+    code = ("import gadyen_web.chatbot as b, chatbot.memory as m; "
+            "print(b.MEMORY_FILE); print(m.DEFAULT_PATH)")
+    env = {**os.environ, "GADYEN_MEMORY_FILE": "", "SECRET_KEY": "x" * 40}
+    out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True,
+                         cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__))), check=True)
+    web_path, chat_path = out.stdout.splitlines()
+    assert web_path == "gadyen_web_memory.json"
+    assert chat_path.endswith("user_memory.json")

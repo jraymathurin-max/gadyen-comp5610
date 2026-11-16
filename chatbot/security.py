@@ -145,12 +145,28 @@ SAFE_LEAK_REPLY = ("I can't share my internal instructions, but I'm happy to kee
                    "with your office's security plan.")
 
 
-def filter_output(reply: str, system_prompt: str, leak_threshold: int = 3):
+def quotable_spans(system_prompt: str, extra=()):
+    """Text the model is SUPPOSED to repeat word for word: every "double-quoted"
+    passage in the prompt (the required disclaimer, example phrasings) plus any
+    extra blocks such as a message template. These are not leaks."""
+    # Pair quotes strictly in order (findall consumes each pair), then keep only
+    # one-line passages long enough to matter. Requiring a single line stops an
+    # unbalanced quote from whitelisting real instructions between two quotes.
+    pairs = re.findall(r'"([^"\n]*)"', system_prompt)
+    spans = [s for s in pairs if len(s) >= 20]
+    return [*spans, *extra]
+
+
+def filter_output(reply: str, system_prompt: str, leak_threshold: int = 3, quotable=()):
     """Return (safe_reply, list of issues). Blocks verbatim system-prompt leakage
-    (>= leak_threshold 8-word runs copied from the prompt) and redacts secrets/PII."""
+    (>= leak_threshold 8-word runs copied from the prompt's INSTRUCTIONS) and
+    redacts secrets/PII. Runs that come from `quotable` text do not count."""
     issues = []
     reply = str(reply or "")
-    if len(_shingles(reply) & _shingles(system_prompt)) >= leak_threshold:
+    secret_runs = _shingles(system_prompt)
+    for text in quotable:
+        secret_runs -= _shingles(text)
+    if len(_shingles(reply) & secret_runs) >= leak_threshold:
         return SAFE_LEAK_REPLY, ["system_prompt_leak"]
     reply, kinds = redact_sensitive(reply)
     if kinds:

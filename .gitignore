@@ -9,4 +9,5 @@ gadyen-report.json
 # per-user chatbot memory is user data, never commit it
 user_memory.json
 gadyen_web_memory.json
+*.tmp
 *.log
