@@ -13,22 +13,27 @@ Security hardening (see SECURITY.md):
 """
 import logging
 import os
+import re
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, request, send_from_directory, session
-from mysql.connector import errors
 
-from chatbot.chatbot import get_reply
-from chatbot.security import MAX_MESSAGE_CHARS, RateLimiter, redact_sensitive, validate_registration
-from database.database import add_user, check_user, check_username, get_chat_history, save_chat_message
+load_dotenv()  # before importing modules that read environment variables
 
-load_dotenv()
+from flask import Flask, jsonify, redirect, request, send_from_directory, session  # noqa: E402
+from mysql.connector import errors  # noqa: E402
+
+from chatbot.chatbot import get_reply  # noqa: E402
+from chatbot.security import (MAX_MESSAGE_CHARS, RateLimiter, redact_sensitive,  # noqa: E402
+                              validate_registration)
+from database.database import (add_user, check_user, check_username, get_chat_history,  # noqa: E402
+                               get_table, save_chat_message)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 security_log = logging.getLogger("gadyen.security")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+EMAIL_RE = re.compile(r"^[^@\s<>]{1,64}@[^@\s<>]{1,190}\.[A-Za-z]{2,24}$")
 
 
 def _require_secret_key() -> str:
@@ -44,10 +49,17 @@ app.secret_key = _require_secret_key()
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Strict",
-    SESSION_COOKIE_SECURE=os.getenv("SESSION_COOKIE_SECURE", "0") == "1",  # set to 1 behind HTTPS
+    # HTTPS-only cookies on Render, or when SESSION_COOKIE_SECURE=1 behind another HTTPS proxy
+    SESSION_COOKIE_SECURE=bool(os.getenv("RENDER")) or os.getenv("SESSION_COOKIE_SECURE", "0") == "1",
     PERMANENT_SESSION_LIFETIME=60 * 60 * 8,
     MAX_CONTENT_LENGTH=64 * 1024,   # reject large request bodies outright
 )
+
+# Create the tables automatically when the server starts
+try:
+    get_table()
+except Exception as e:  # noqa: BLE001 - app can still serve pages; DB errors surface per request
+    security_log.error("could not create tables: %s", type(e).__name__)
 
 # Rate limits (in-memory; use Redis or similar if you run several workers).
 login_failures = RateLimiter(limit=5, window=15 * 60)    # 5 failed logins / 15 min per IP+user
@@ -105,15 +117,18 @@ def register():
     if not register_limiter.hit(client_ip()):
         security_log.warning("register_rate_limited ip=%s", client_ip())
         return redirect("/register.html?error=rate")
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
-    problem = validate_registration(username, password)
-    if problem:
+    if validate_registration(username, password):
+        return redirect("/register.html?error=policy")
+    if not name or len(name) > 255 or not EMAIL_RE.match(email):
         return redirect("/register.html?error=policy")
     if check_username(username):
         return redirect("/register.html?error=1")
     try:
-        add_user(username, password)
+        add_user(username, password, name, email)
     except errors.IntegrityError as e:
         if e.errno == 1062:  # duplicate entry (ER_DUP_ENTRY)
             return redirect("/register.html?error=1")
@@ -189,6 +204,14 @@ def chat_history():
     if "user_id" not in session:
         return jsonify(error="Not logged in"), 401
     return jsonify(get_chat_history(session["user_id"]))
+
+
+@app.get("/chat/welcome")
+def chat_welcome():
+    if "user_id" not in session:
+        return jsonify(error="Not logged in"), 401
+    return jsonify(reply="Welcome to Gayden Safeguard! I help you create a Written Information "
+                         "Security Plan (WISP). What language would you prefer to use?")
 
 
 if __name__ == "__main__":

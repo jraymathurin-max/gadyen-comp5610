@@ -107,7 +107,7 @@ async function loadInitialGreeting() {
     const typingDiv = showTyping();
 
     try {
-        const res = await fetch("chat/welcome");
+        const res = await fetch("/chat/welcome");
         if (res.status === 401) {
             window.location.href = "/";
             return;
@@ -115,19 +115,19 @@ async function loadInitialGreeting() {
         if (!res.ok) {
             throw new Error("Could not generate greeting");
         }
-        const data = await res.join();
+        const data = await res.json();
 
         typingDiv.remove();
         if (data.reply) {
             addMessage(data.reply, "bot-message");
         }
-    } catch {
+    } catch (error) {
         typingDiv.remove();
         addMessage(
             "Welcome to Gayden Safeguard! What language would you prefer to use?", "bot-message"
         );
         console.error(error);
     }
-    window.addEventListener("DOMContentLoaded", loadChatHistory);
 }
 
+window.addEventListener("DOMContentLoaded", loadChatHistory);

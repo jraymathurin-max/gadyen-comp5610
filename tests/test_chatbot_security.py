@@ -209,7 +209,10 @@ def web(monkeypatch):
         return rec[1] if rec and rec[0] == p else None
     fake_db.check_user = check_user
     fake_db.check_username = lambda u: u in users
-    fake_db.add_user = lambda u, p: users.__setitem__(u, (p, len(users) + 1))
+    fake_db.get_table = lambda: None
+    registered = []
+    fake_db.add_user = lambda u, p, name=None, email=None: (
+        registered.append((u, name, email)), users.__setitem__(u, (p, len(users) + 1)))
     fake_db.save_chat_message = lambda uid, role, content: saved.append((uid, role, content))
     fake_db.get_chat_history = lambda uid: [m for m in saved if m[0] == uid]
     monkeypatch.setitem(sys.modules, "database.database", fake_db)
@@ -222,6 +225,7 @@ def web(monkeypatch):
     monkeypatch.setattr(server, "get_reply", lambda uid, msg: llm_calls.append(msg) or "bot reply")
     server.app.config["TESTING"] = True
     server.saved, server.llm_calls, server.login_checks = saved, llm_calls, login_checks
+    server.registered = registered
     yield server
     sys.modules.pop("database.server", None)
 
@@ -298,6 +302,17 @@ def test_pii_is_never_written_to_the_database(web):
 def test_weak_password_registration_rejected(web):
     c = web.app.test_client()
     r = c.post("/register", data={"username": "bob", "password": "password"})
+    assert "error=policy" in r.headers["Location"]
+
+
+def test_valid_registration_saves_name_and_email(web):
+    c = web.app.test_client()
+    r = c.post("/register", data={"name": "Bob", "email": "bob@example.com",
+                                  "username": "bob", "password": "Correct-Horse-Battery-9"})
+    assert r.headers["Location"] == "/"
+    assert web.registered == [("bob", "Bob", "bob@example.com")]
+    r = c.post("/register", data={"name": "Eve", "email": "not-an-email",
+                                  "username": "eve", "password": "Correct-Horse-Battery-9"})
     assert "error=policy" in r.headers["Location"]
 
 

@@ -8,15 +8,21 @@ from contextlib import contextmanager
 load_dotenv()
 
 pool = mysql.connector.pooling.MySQLConnectionPool(
+    pool_name="gadyen_pool",
+    pool_size=5,
     host=os.getenv("MYSQL_HOST"),
+    port=int(os.getenv("MYSQL_PORT", "3306")),
     user=os.getenv("MYSQL_USER"),
     password=os.getenv("MYSQL_PASSWORD"),
-    database=os.getenv("MYSQL_DATABASE")
+    database=os.getenv("MYSQL_DATABASE"),
 )
+
 
 @contextmanager
 def get_cursor(commit=False):
     connection = pool.get_connection()
+    # Cloud databases close idle connections: reconnect if needed
+    connection.ping(reconnect=True, attempts=3, delay=1)
     cur = connection.cursor(dictionary=True)
     try:
         yield cur
@@ -27,10 +33,11 @@ def get_cursor(commit=False):
         raise
     finally:
         cur.close()
-        connection.close() # Returns connection to the pool
+        connection.close()  # Returns connection to the pool
+
 
 def get_table():
-    with get_cursor() as cur:
+    with get_cursor(commit=True) as cur:
         cur.execute("""
             CREATE TABLE IF NOT EXISTS user_login (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -41,9 +48,11 @@ def get_table():
         cur.execute("""
             CREATE TABLE IF NOT EXISTS user_info (
                 id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id INT NOT NULL,
                 name VARCHAR(255) NOT NULL,
                 email VARCHAR(255) NOT NULL,
-                FOR
+                FOREIGN KEY (user_id) REFERENCES user_login(id)
+            )
         """)
         cur.execute("""
             CREATE TABLE IF NOT EXISTS chat_messages (
@@ -55,7 +64,8 @@ def get_table():
                 FOREIGN KEY (user_id) REFERENCES user_login(id)
             )
         """)
-        print("Tables are ready")
+    print("Tables are ready")
+
 
 def getUsers():
     with get_cursor() as cur:
@@ -63,77 +73,66 @@ def getUsers():
         rows = cur.fetchall()
     print(rows)
 
+
 def getUser(user_id):
     with get_cursor() as cur:
         cur.execute("SELECT * FROM user_login WHERE id = %s", (user_id,))
-    return cur.fetchone()  #dict or None
+        return cur.fetchone()  # dict or None
+
 
 def check_user(username, password):
     with get_cursor() as cur:
-        cur.execute("SELECT id, password FROM user_login WHERE username = %s", (username,),
-                    )
+        cur.execute("SELECT id, password FROM user_login WHERE username = %s", (username,))
         row = cur.fetchone()
 
         if row is None:
             return None
-        
+
         match = bcrypt.checkpw(
-            password.encode("utf-8"), 
+            password.encode("utf-8"),
             row["password"].encode("utf-8"),
-            )
+        )
         return row["id"] if match else None
+
 
 def check_username(username):
     with get_cursor() as cur:
-        cur.execute("SELECT id, password FROM user_login WHERE username = %s", (username,),
-                    )
-        row = cur.fetchone()
+        cur.execute("SELECT id FROM user_login WHERE username = %s", (username,))
+        return cur.fetchone() is not None
 
-        if row is None:
-            return False
-        return True
 
-def add_user(username, password):
+def add_user(username, password, name=None, email=None):
     hashed = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt(rounds=12))
     with get_cursor(commit=True) as cur:
-        cur.execute ("INSERT INTO user_login (username, password) VALUES (%s,%s)", (username, hashed.decode("utf-8"))
+        cur.execute(
+            "INSERT INTO user_login (username, password) VALUES (%s,%s)",
+            (username, hashed.decode("utf-8")),
         )
+        user_id = cur.lastrowid
+        if name and email:
+            cur.execute(
+                "INSERT INTO user_info (user_id, name, email) VALUES (%s,%s,%s)",
+                (user_id, name, email),
+            )
     print(f"{username} added")
 
 
 def save_chat_message(user_id, role, content):
     with get_cursor(commit=True) as cur:
-        cur.execute("INSERT INTO chat_messages (user_id, role, content) VALUES (%s,%s,%s)",
-        (user_id, role, content),
+        cur.execute(
+            "INSERT INTO chat_messages (user_id, role, content) VALUES (%s,%s,%s)",
+            (user_id, role, content),
         )
+
 
 def get_chat_history(user_id, limit=20):
     with get_cursor() as cur:
         cur.execute(
-            """ 
-            SELECT role, content FROM chat_messages 
+            """
+            SELECT role, content FROM chat_messages
             WHERE user_id = %s ORDER BY created_at DESC, id DESC LIMIT %s
             """,
             (user_id, limit),
         )
         rows = cur.fetchall()
-    return rows[::-1]   # oldest first
-
-
-if __name__=="__main__":
-    get_table()
-    name = "Nick"
-    try:
-        add_user(name, "password")
-    except Exception as e:
-        print("add_user failed", e)
-    getUsers()
-    if check_user(name, "password"):
-        print(f"{name} Successfully Logged in")
-    else:
-        print("Incorrect username or password")
-
-    if check_user(name, "password1"):
-        print(f"{name} Successfully Logged in")
-    else:
-        print("Incorrect username or password")
+    return rows[::-1]  # oldest first
