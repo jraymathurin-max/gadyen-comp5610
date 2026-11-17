@@ -11,6 +11,7 @@ Security hardening (see SECURITY.md):
 """
 import logging
 import os
+import re
 from collections import OrderedDict
 
 from dotenv import load_dotenv
@@ -138,7 +139,21 @@ Include this, translated into the user's language, whenever you deliver the WISP
 """
 
 # Passages the model is told to reproduce (e.g. the disclaimer): not leaks.
-QUOTABLE = quotable_spans(system_instruction)
+# Subject matter the agent has to write about: the Safeguards Rule elements, the
+# interview topics, the scope and the incident steps. A gap analysis or a WISP draft
+# repeats these words, so they must not count as a leak of the instructions
+# (they did: the first real WISP draft was replaced by the refusal message).
+# The rules of behavior in the prompt stay protected by the leak filter.
+_SUBJECT_PATTERNS = (
+    r"required elements of 16 CFR 314\.4, including:\n(.*?)\n\s*Mark each element",
+    r"Topics to cover: ([^\n]*)",
+    r"\nIn scope: ([^\n]*)",
+    r"# Incidents\n([^\n]*)",
+    r"6\. Explain and follow up\. ([^\n]*)",
+)
+SUBJECT_MATTER = [m.group(1) for m in (re.search(p, system_instruction, re.S)
+                                       for p in _SUBJECT_PATTERNS) if m]
+QUOTABLE = quotable_spans(system_instruction, extra=SUBJECT_MATTER)
 
 
 
