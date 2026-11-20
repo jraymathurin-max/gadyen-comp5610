@@ -71,6 +71,11 @@ uvicorn gadyen.api:app --reload
    - pip3 install dotenv
    - python3 -m pip install google-genai
    - pip3 install bcrypt
+4. Getting Render working
+   - sudo apt install -y mkcert libnss3-tools
+   - mkcert -install
+   - mkcert localhost 127.0.0.1
+   - gunicorn --certfile localhost+1.pem --keyfile localhost+1-key.pem gadyen_web.server:app
 
 ## Database.py
 1. I created a .env folder:
