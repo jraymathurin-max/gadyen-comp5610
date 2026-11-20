@@ -88,13 +88,13 @@ def chat_history():
      "Introduce yourself as Gayden Safeguard and welcome the user. Briefly explain that you help create WISPs and ask what language they prefer."
     """
 
-@app.get("/chat/history")
-def chat_history():
-    if "user_id" not in session:
-        return jsonify(error="Not logged in"), 401
-    history = get_chat_history(session["user_id"])
-    return jsonify(history)
+# @app.get("/chat/history")
+# def chat_history():
+#     if "user_id" not in session:
+#         return jsonify(error="Not logged in"), 401
+#     history = get_chat_history(session["user_id"])
+#     return jsonify(history)
     
 
 if __name__=="__main__":
-    app.run(port=3000, debug=True)
+    app.run(port=3000, debug=True, ssl_context="adhoc")
