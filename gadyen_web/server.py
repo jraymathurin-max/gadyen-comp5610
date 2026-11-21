@@ -1,4 +1,9 @@
 import os
+import string
+import secrets
+import time
+from urllib.parse import quote
+from flask_mail import Mail
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -9,8 +14,7 @@ from mysql.connector import errors
 from gadyen_web.chatbot import ChatError, get_reply
 from gadyen_web.languages import normalize_language, welcome_message
 from database.database import (
-    get_table, check_user, add_user, check_username,
-    save_chat_message, get_chat_history,
+    get_table, get_cursor, check_user, add_user, check_username, save_chat_message, get_chat_history,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +27,18 @@ app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",
     SESSION_COOKIE_SECURE=bool(os.getenv("RENDER")),  # HTTPS on Render
 )
+app.config.update(
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_USE_TLS=True,
+    MAIL_USE_SSL=False,
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+)
+
+mail = Mail(app)
+otp_storage = {}
+OTP_TTL = 600
 
 # Create the tables automatically when the server starts
 try:
@@ -45,20 +61,69 @@ def dashboard():
 
 @app.post("/register")
 def register():
-    name = request.form["name"]
-    email = request.form["email"]
+    print("REGISTER ROUTE REACHED")
+    name = request.form["name"].strip()
+    email = request.form["email"].strip().lower()
     username = request.form["username"]
     password = request.form["password"]
 
+    # re_enter_password = request.form["re_enter_password"]
     if check_username(username):
         return redirect("/register.html?error=1")
 
+    otp = ''.join(secrets.choice(string.digits) for _ in range(6))
+    otp_storage[email] = {
+        "otp": otp,
+        "name": name,
+        "username": username,
+        "password": password,
+        "expires": time.time() + OTP_TTL
+    }
     try:
-        add_user(username, password, name, email)
-    except errors.IntegrityError as e:
-        if e.errno == 1062:  # duplicate entry
-            return redirect("/register.html?error=1")
-        raise
+        mail.send_message(
+            subject=f"Verify your email",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email],
+            body=f"Your verification code is: {otp}"
+        )
+        print("OTP EMAIL SENT SUCCESSFULLY")
+    except Exception as e:
+        print("EMAIL ERROR: ", repr(e))
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=email")
+    return redirect(f"/verify.html?email={quote(email)}")
+
+@app.post("/verify")
+def verify_email():
+    email = (request.form.get("email") or "").strip().lower()
+    entered_otp = (request.form.get("otp") or "").strip()
+
+    if not email or not entered_otp:
+        return redirect("/register.html?error=missing")
+
+    stored_data = otp_storage.get(email)
+
+    if not stored_data or time.time() > stored_data["expires"]:
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=expired")
+
+    if entered_otp != stored_data["otp"]:
+        return redirect(
+            f"/verify.html?email={quote(email)}&error=invalid"
+        )
+
+    try:
+        add_user(
+            stored_data["username"],
+            stored_data["password"],
+            stored_data["name"],
+            email,
+        )
+        print(f"User {stored_data['username']} verified and registered")
+    except errors.IntegrityError:
+        return redirect("/register.html?error=1")
+
+    otp_storage.pop(email, None)
     return redirect("/")
 
 
@@ -66,13 +131,17 @@ def register():
 def login():
     username = request.form["username"]
     password = request.form["password"]
-    user_id = check_user(username, password)
 
+    try:
+        user_id = check_user(username, password)
+    except Exception:
+        app.logger.exception("login failed")
+        return redirect("/?error=1")
+    
     if user_id:
         session["user_id"] = user_id
         return redirect("/dashboard")
     return redirect("/?error=1")
-
 
 @app.post("/chat")
 def chat():
@@ -117,6 +186,27 @@ def chat_history():
     except Exception:
         app.logger.exception("could not load chat history")
         return jsonify(error="unavailable"), 500
+
+@app.get("/user-info")
+def user_info_page():
+    if "user_id" not in session:
+        return redirect("/")
+    return send_from_directory(os.path.join(BASE_DIR, "views"), "user_info.html")
+
+@app.get("/api/me")
+def user_info():
+    if "user_id" not in session:
+        return jsonify(error="not_logged_in"), 401
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT u.username, i.name, i.email "
+            "FROM user_login u "
+            "LEFT JOIN user_info i ON i.user_id = u.id "
+            "WHERE u.id = %s",
+            (session["user_id"],),
+        )
+        row = cur.fetchone()
+    return jsonify(row or {})
 
 
 @app.get("/chat/welcome")

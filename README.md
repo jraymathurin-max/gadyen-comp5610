@@ -76,6 +76,7 @@ uvicorn gadyen.api:app --reload
    - mkcert -install
    - mkcert localhost 127.0.0.1
    - gunicorn --certfile localhost+1.pem --keyfile localhost+1-key.pem gadyen_web.server:app
+5. pip3 install Flask-Mail
 
 ## Database.py
 1. I created a .env folder:

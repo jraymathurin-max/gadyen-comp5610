@@ -313,6 +313,56 @@ header h1 {
     outline-offset: 2px;
 }
 
+.personal-information {
+    position: absolute;
+    box-sizing: border-box;
+    background-color: var(--guardian-blue);
+    width: clamp(44px, 8vw, 80px);
+    aspect-ratio: 1;
+    padding: clamp(6px, 1.5vw, 10px);
+    border-radius: 50%;
+    bottom: 20px;
+    left: 20px;
+    display: grid;
+    place-items: center;
+}
+
+.personal-information img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+.user-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: min(90%, 500px);
+    padding: 50px;
+    background-color: var(--guardian-blue);
+    border-radius: 8px;
+}
+.user-info img {
+    width: clamp(44px, 8vw, 300px);
+    aspect-ratio: 1;
+    box-sizing: border-box;
+    padding: clamp(6px, 1.5vw, 10px);
+    background-color: #3a1f2a;
+    border-radius: 50%;
+    object-fit: contain;
+    display: block;
+    margin-bottom: 16px;
+}
+.user-info p {
+    font-size: clamp(1.125rem, 1rem + 0.6vw, 1.5rem);
+    padding-top: 10px;
+}
+
+
+
 /* ---------- phones ---------- */
 @media (max-width: 620px) {
     body { padding: 0; }
@@ -322,6 +372,10 @@ header h1 {
         height: 100dvh;
         border: none;
         border-radius: 0;
+    }
+    .personal-information {
+        bottom: 12px;
+        left: 12px;
     }
     header { padding: 12px 14px; }
     header h1 { font-size: 1.15rem; }
