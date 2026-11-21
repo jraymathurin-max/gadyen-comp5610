@@ -14,10 +14,18 @@ Security hardening (shared controls live in chatbot/security.py, see SECURITY.md
 """
 import logging
 import os
+<<<<<<< HEAD
 import re
 import time
 from urllib.parse import urlparse
 
+=======
+import string
+import secrets
+import time
+from urllib.parse import quote
+from flask_mail import Mail
+>>>>>>> bd91423 (Added email verification and information page)
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -25,6 +33,7 @@ load_dotenv()
 from flask import Flask, jsonify, redirect, request, send_from_directory, session  # noqa: E402
 from mysql.connector import errors  # noqa: E402
 
+<<<<<<< HEAD
 from chatbot.security import (RateLimiter, filter_output, looks_like_injection,  # noqa: E402
                               redact_sensitive, validate_registration)
 from database.database import get_table, check_user, add_user, check_username  # noqa: E402
@@ -36,6 +45,13 @@ from gadyen_web.languages import normalize_language, welcome_message  # noqa: E4
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 security_log = logging.getLogger("gadyen.security")
+=======
+from gadyen_web.chatbot import ChatError, get_reply
+from gadyen_web.languages import normalize_language, welcome_message
+from database.database import (
+    get_table, get_cursor, check_user, add_user, check_username, save_chat_message, get_chat_history,
+)
+>>>>>>> bd91423 (Added email verification and information page)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MAX_MESSAGE_CHARS = 4000
@@ -64,6 +80,18 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=60 * 60 * 8,
     MAX_CONTENT_LENGTH=64 * 1024,
 )
+app.config.update(
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_USE_TLS=True,
+    MAIL_USE_SSL=False,
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+)
+
+mail = Mail(app)
+otp_storage = {}
+OTP_TTL = 600
 
 # Create the tables automatically when the server starts
 try:
@@ -150,6 +178,7 @@ def dashboard():
 # ------------------------------------------------------------------ auth
 @app.post("/register")
 def register():
+<<<<<<< HEAD
     if not register_limiter.hit(client_ip()):
         security_log.warning("register_rate_limited ip=%s", client_ip())
         return redirect("/register.html?error=rate")
@@ -170,11 +199,77 @@ def register():
             return redirect("/register.html?error=1")
         raise
     security_log.info("user_registered username=%s ip=%s", username, client_ip())
+=======
+    print("REGISTER ROUTE REACHED")
+    name = request.form["name"].strip()
+    email = request.form["email"].strip().lower()
+    username = request.form["username"]
+    password = request.form["password"]
+
+    # re_enter_password = request.form["re_enter_password"]
+    if check_username(username):
+        return redirect("/register.html?error=1")
+
+    otp = ''.join(secrets.choice(string.digits) for _ in range(6))
+    otp_storage[email] = {
+        "otp": otp,
+        "name": name,
+        "username": username,
+        "password": password,
+        "expires": time.time() + OTP_TTL
+    }
+    try:
+        mail.send_message(
+            subject=f"Verify your email",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email],
+            body=f"Your verification code is: {otp}"
+        )
+        print("OTP EMAIL SENT SUCCESSFULLY")
+    except Exception as e:
+        print("EMAIL ERROR: ", repr(e))
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=email")
+    return redirect(f"/verify.html?email={quote(email)}")
+
+@app.post("/verify")
+def verify_email():
+    email = (request.form.get("email") or "").strip().lower()
+    entered_otp = (request.form.get("otp") or "").strip()
+
+    if not email or not entered_otp:
+        return redirect("/register.html?error=missing")
+
+    stored_data = otp_storage.get(email)
+
+    if not stored_data or time.time() > stored_data["expires"]:
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=expired")
+
+    if entered_otp != stored_data["otp"]:
+        return redirect(
+            f"/verify.html?email={quote(email)}&error=invalid"
+        )
+
+    try:
+        add_user(
+            stored_data["username"],
+            stored_data["password"],
+            stored_data["name"],
+            email,
+        )
+        print(f"User {stored_data['username']} verified and registered")
+    except errors.IntegrityError:
+        return redirect("/register.html?error=1")
+
+    otp_storage.pop(email, None)
+>>>>>>> bd91423 (Added email verification and information page)
     return redirect("/")
 
 
 @app.post("/login")
 def login():
+<<<<<<< HEAD
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
     key = (client_ip(), username.lower())
@@ -185,6 +280,17 @@ def login():
         user_id = None
     else:
         user_id = check_user(username, password)
+=======
+    username = request.form["username"]
+    password = request.form["password"]
+
+    try:
+        user_id = check_user(username, password)
+    except Exception:
+        app.logger.exception("login failed")
+        return redirect("/?error=1")
+    
+>>>>>>> bd91423 (Added email verification and information page)
     if user_id:
         login_failures.reset(key)
         session.clear()               # prevent session fixation
@@ -197,6 +303,7 @@ def login():
     security_log.warning("login_failed username=%s ip=%s", username, client_ip())
     return redirect("/?error=1")
 
+<<<<<<< HEAD
 
 @app.post("/logout")
 def logout():
@@ -237,6 +344,8 @@ def _conversation_id(value):
 
 
 
+=======
+>>>>>>> bd91423 (Added email verification and information page)
 @app.post("/chat")
 def chat():
     """Always answers with JSON, so the page can show a real reason on failure."""
@@ -317,6 +426,27 @@ def conversations_list():
         app.logger.exception("could not list conversations")
         return jsonify(error="unavailable"), 500
 
+@app.get("/user-info")
+def user_info_page():
+    if "user_id" not in session:
+        return redirect("/")
+    return send_from_directory(os.path.join(BASE_DIR, "views"), "user_info.html")
+
+@app.get("/api/me")
+def user_info():
+    if "user_id" not in session:
+        return jsonify(error="not_logged_in"), 401
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT u.username, i.name, i.email "
+            "FROM user_login u "
+            "LEFT JOIN user_info i ON i.user_id = u.id "
+            "WHERE u.id = %s",
+            (session["user_id"],),
+        )
+        row = cur.fetchone()
+    return jsonify(row or {})
+
 
 @app.get("/conversations/<int:conversation_id>/messages")
 def conversation_messages(conversation_id):
@@ -355,5 +485,9 @@ def chat_welcome():
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     app.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "3000")),
             debug=os.getenv("FLASK_DEBUG", "0") == "1")
+=======
+    app.run(port=3000, debug=True)
+>>>>>>> bd91423 (Added email verification and information page)

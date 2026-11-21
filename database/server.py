@@ -13,6 +13,7 @@ Security hardening (see SECURITY.md):
 """
 import logging
 import os
+<<<<<<< HEAD
 import re
 from urllib.parse import urlparse
 
@@ -31,6 +32,23 @@ from database.database import (add_user, check_user, check_username, get_chat_hi
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 security_log = logging.getLogger("gadyen.security")
+=======
+import random
+import string
+from flask import Flask, session, redirect, request, send_from_directory, jsonify
+from mysql.connector import errors
+from dotenv import load_dotenv
+from google import genai
+from chatbot.chatbot import get_reply
+from flask_mail import Mail
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+from database.database import check_user, add_user, check_username, save_chat_message, get_chat_history
+client = genai.Client()
+
+load_dotenv()
+>>>>>>> bd91423 (Added email verification and information page)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 EMAIL_RE = re.compile(r"^[^@\s<>]{1,64}@[^@\s<>]{1,190}\.[A-Za-z]{2,24}$")
@@ -48,6 +66,7 @@ app = Flask(__name__, static_folder="public", static_url_path="")
 app.secret_key = _require_secret_key()
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
+<<<<<<< HEAD
     SESSION_COOKIE_SAMESITE="Strict",
     # HTTPS-only cookies on Render, or when SESSION_COOKIE_SECURE=1 behind another HTTPS proxy
     SESSION_COOKIE_SECURE=bool(os.getenv("RENDER")) or os.getenv("SESSION_COOKIE_SECURE", "0") == "1",
@@ -66,7 +85,22 @@ login_failures = RateLimiter(limit=5, window=15 * 60)    # 5 failed logins / 15 
 register_limiter = RateLimiter(limit=5, window=60 * 60)  # 5 registrations / hour per IP
 chat_minute = RateLimiter(limit=10, window=60)           # 10 messages / minute per user
 chat_day = RateLimiter(limit=200, window=24 * 60 * 60)   # 200 messages / day per user
+=======
+    SESSION_COOKIE_SAMESITE="Lax",
+)
 
+app.config.update(
+    MAIL_SERVER=os.getenv("MAIL_SERVER"),
+    MAIL_PORT=int(os.getenv("MAIL_PORT", 587)),
+    MAIL_USE_TLS=True,
+    MAIL_USE_SSL=False,
+    MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
+    MAIL_PASSWORD=os.getenv("MAIL_PASSWORD"),
+)
+>>>>>>> bd91423 (Added email verification and information page)
+
+mail = Mail(app)
+otp_storage = {}
 
 def client_ip() -> str:
     return request.remote_addr or "unknown"
@@ -110,6 +144,7 @@ def dashboard():
         return redirect("/")
     return send_from_directory(os.path.join(BASE_DIR, "views"), "dashboard.html")
 
+<<<<<<< HEAD
 
 # ------------------------------------------------------------------ auth
 @app.post("/register")
@@ -137,6 +172,8 @@ def register():
     return redirect("/")
 
 
+=======
+>>>>>>> bd91423 (Added email verification and information page)
 @app.post("/login")
 def login():
     username = request.form.get("username", "").strip()
@@ -160,6 +197,67 @@ def login():
     security_log.warning("login_failed username=%s ip=%s", username, client_ip())
     return redirect("/?error=1")
 
+@app.post("/register")
+def register():
+    print("REGISTER ROUTE REACHED")
+    name = request.form["name"]
+    email = request.form["email"]
+    username = request.form["username"]
+    password = request.form["password"]
+
+    # re_enter_password = request.form["re_enter_password"]
+    if check_username(username):
+        return redirect("/register.html?error=1")
+
+    otp = ''.join(random.choice(string.digits) for _ in range(6))
+    otp_storage[email] = {
+        "otp": otp,
+        "username": username,
+        "password": password
+    }
+    try:
+        mail.send_message(
+            subject=f"Verify your email",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email],
+            body=f"Your verification code is: {otp}"
+        )
+        print("OTP EMAIL SENT SUCCESSFULLY")
+    except errors.IntegrityError as e:
+        print("EMAIL ERROR: ", repr(e))
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=email")
+    return redirect(f"/verify.html?email={email}")
+
+@app.post("/verify")
+def verify_email():
+    email = request.form.get("email")
+    entered_otp = request.form.get("otp")
+
+    if not email or not entered_otp:
+        return redirect("/register.html?error=missing")
+
+    stored_data = otp_storage.get(email)
+
+    if not stored_data:
+        return redirect("/register.html?error=expired")
+
+    if entered_otp != stored_data["otp"]:
+        return redirect(
+            f"/verify.html?email={email}&error=invalid"
+        )
+
+    try:
+        add_user(
+            stored_data["username"],
+            stored_data["password"]
+        )
+        print(f"User {stored_data['username']} verified and registered")
+    except errors.IntegrityError:
+        return redirect("/register.html?error=1")
+
+    otp_storage.pop(email, None)
+    return redirect("/")
 
 @app.post("/logout")
 def logout():
@@ -173,6 +271,10 @@ def chat():
     if "user_id" not in session:
         return jsonify(error="Not logged in"), 401
     user_id = session["user_id"]
+<<<<<<< HEAD
+=======
+    message = request.get_json().get("message", "").strip()
+>>>>>>> bd91423 (Added email verification and information page)
 
     body = request.get_json(silent=True)
     if not isinstance(body, dict) or not isinstance(body.get("message"), str):
@@ -198,22 +300,34 @@ def chat():
     save_chat_message(user_id, "bot", reply)
     return jsonify(reply=reply)
 
-
 @app.get("/chat/history")
 def chat_history():
     if "user_id" not in session:
         return jsonify(error="Not logged in"), 401
-    return jsonify(get_chat_history(session["user_id"]))
+    user_id = session["user_id"]
+    history = get_chat_history(user_id)
+    if history:
+        return jsonify(reply=None)
 
+    prompt = """
+     "Introduce yourself as Gayden Safeguard and welcome the user. Briefly explain that you help create WISPs and ask what language they prefer."
+    """
+    
 
-@app.get("/chat/welcome")
-def chat_welcome():
-    if "user_id" not in session:
-        return jsonify(error="Not logged in"), 401
-    return jsonify(reply="Welcome to Gayden Safeguard! I help you create a Written Information "
-                         "Security Plan (WISP). What language would you prefer to use?")
+# @app.get("/chat/history")
+# def chat_history():
+#     if "user_id" not in session:
+#         return jsonify(error="Not logged in"), 401
+#     history = get_chat_history(session["user_id"])
+#     return jsonify(history)
+    
 
+<<<<<<< HEAD
 
 if __name__ == "__main__":
     app.run(host=os.getenv("HOST", "127.0.0.1"), port=int(os.getenv("PORT", "3000")),
             debug=os.getenv("FLASK_DEBUG", "0") == "1")
+=======
+if __name__=="__main__":
+    app.run(port=3000, debug=True)
+>>>>>>> bd91423 (Added email verification and information page)

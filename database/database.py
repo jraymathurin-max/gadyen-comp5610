@@ -50,7 +50,7 @@ def get_table():
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL,
+                email VARCHAR(255) NOT NULL UNIQUE,
                 FOREIGN KEY (user_id) REFERENCES user_login(id)
             )
         """)
