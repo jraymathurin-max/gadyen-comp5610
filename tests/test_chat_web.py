@@ -29,6 +29,8 @@ class FakeDB:
         mod.check_user = lambda u, p: 1
         mod.add_user = lambda *a, **k: None
         mod.check_username = lambda u: False
+        mod.save_chat_message = lambda user_id, role, content: None
+        mod.get_chat_history = lambda user_id, limit=20: []
         sys.modules["database.database"] = mod
 
     def patch_store(self, monkeypatch, store):

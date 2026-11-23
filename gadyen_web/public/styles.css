@@ -88,6 +88,9 @@ form {
     height: 50px;
     margin: 22px 0;
 }
+ .wrapper p{
+    padding: 10px;
+ }
 
 .input-box input {
     width: 100%;

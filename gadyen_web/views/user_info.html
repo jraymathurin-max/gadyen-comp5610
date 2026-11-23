@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Information</title>
+    <link rel="stylesheet" href="/dashboard_styles.css">
+</head>
+<body>
+    <canvas id="net-bg" aria-hidden="true"></canvas>
+
+
+    <div class="user-info">
+        <img src="/images/user.png" alt="">
+        
+        <p><strong>Name:</strong> <span id="name">Loading...</span></p>
+        <p><strong>Username:</strong> <span id="username">Loading...</span></p>
+        <p><strong>Email:</strong> <span id="email">Loading...</span></p>
+    </div>
+
+    <script src="/network-bg.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        document.getElementById("email").value = params.get("email") || "";
+
+        if (params.get("error")) {
+            document.getElementById("error-msg").style.display = "block";
+        }
+
+        fetch("/api/me")
+        .then(r => {
+            if (r.status === 401) {
+                window.location.href = "/";
+                return null;
+            }
+            return r.json();
+        })
+        .then(d => {
+            if (!d) return;
+            document.getElementById("name").textContent = d.name || "Not provided";
+            document.getElementById("email").textContent = d.email || "Not provided";
+            document.getElementById("username").textContent = d.username || "";
+        })
+        .catch(() => {
+            document.getElementById("name").textContent = "Could not load";
+            document.getElementById("email").textContent = "";
+            document.getElementById("username").textContent = "";
+        });
+    </script>
+</body>
+</html>
