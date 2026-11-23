@@ -93,6 +93,6 @@ def chat_history():
 #     history = get_chat_history(session["user_id"])
 #     return jsonify(history)
     
-
+# debug to false
 if __name__=="__main__":
-    app.run(port=3000, debug=True)
+    app.run(port=3000, debug=False)
