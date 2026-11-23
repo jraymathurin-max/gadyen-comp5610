@@ -217,6 +217,7 @@ def web(monkeypatch):
     fake_db.get_chat_history = lambda uid: [m for m in saved if m[0] == uid]
     monkeypatch.setitem(sys.modules, "database.database", fake_db)
 
+    # Added
     from chatbot import chatbot
     monkeypatch.setattr(
     chatbot, "get_reply",
