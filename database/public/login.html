@@ -15,7 +15,7 @@
                 <input type="text" name="username" placeholder="Username">
             </div>
             <div class="input-box">
-                <input type="password" name="password" placeholder="Password" required>
+                <input type="password" name="password" placeholder="Password" required maxlength="72" autocomplete="current-password">
             </div>
             <div class="remember-forgot">
                 <label>
@@ -35,15 +35,7 @@
             </div>
         </form>
     </div>
-    <script>
-    if (new URLSearchParams(window.location.search).get('error')) {
-        document.getElementById('error-msg').style.display = 'block'
-        window.history.replaceState({}, '', '/')
-        setTimeout(() => {
-            ('error-msg').style.display = 'none'
-        }, 3000)
-    }
-    </script>
+    <script src="/auth-messages.js"></script>
 </body>
 </html>
 

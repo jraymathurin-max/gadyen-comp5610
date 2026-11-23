@@ -51,6 +51,8 @@ uvicorn gadyen.api:app --reload
 | `endpoint-check/` | Read-only Windows and macOS self-check scripts |
 | `lab/injection_cases.json` | Prompt-injection test catalog |
 | `tests/` | Unit and adversarial tests |
+| `chatbot/security.py`, `chatbot/memory.py` | Chat agent guards: injection screen, PII redaction, output filter, rate limits, per-user memory |
+| `SECURITY.md` | Threat model, trust boundaries, mitigations, evidence |
 
 
 # Elliot's Additions
@@ -60,7 +62,9 @@ uvicorn gadyen.api:app --reload
 2. In mysql, create a database by typing: "CREATE DATABASE compsec;"
 3. To see if data is getting added to database in terminal (NOT NEEDED) type "use compsec"
 4. Create a virtual enviornment like "python3 -m venv gadyen-env"
-5. Start the server by running the command "python3 -m database.server" at the ~/gadyen-comp5610 directory
+5. Copy `.env.example` to `.env` and set `SECRET_KEY` (32+ random chars: `python -c "import secrets; print(secrets.token_hex(32))"`). The server refuses to start without it.
+6. Start the server by running the command "python3 -m database.server" at the ~/gadyen-comp5610 directory (debugger is off unless `FLASK_DEBUG=1`)
+7. The chatbot CLI is now run as a module: "python3 -m chatbot.chatbot"
 
 ## Installations:
 1. sudo apt update
@@ -113,3 +117,21 @@ uvicorn gadyen.api:app --reload
 ## Important Notes:
 1. Most of the html, css is in a folder named "public", since the internet needs to be able to read the files. "dashboard is in a separate folder since it should only be accessed if the user puts in their correct username and password
 2. Created another .env folder with my GEMINI_API_KEY in chatbot folder
+
+# Deployed chat interface (gadyen_web)
+
+The interface deployed on Render is `gadyen_web/` (start command `gunicorn gadyen_web.server:app`,
+settings in `gunicorn.conf.py`). It reuses `database/database.py` for accounts and
+`chatbot/security.py` for the guards; the files in `database/` and `chatbot/` are the original
+local application.
+
+| Path | Purpose |
+|---|---|
+| `gadyen_web/server.py` | Routes: sign-in, sign-out, chat, conversations, account (`/me`); rate limits, idle sign-out, security headers |
+| `gadyen_web/chatbot.py`, `gadyen_web/languages.py` | Chat agent and the ten supported languages |
+| `gadyen_web/conversations.py`, `gadyen_web/accounts.py` | Conversation history and account name, per signed-in user |
+| `gadyen_web/public/`, `gadyen_web/views/` | Sign-in, registration and chat pages |
+
+Environment variables on Render: `GEMINI_API_KEY`, `SECRET_KEY` (32+ characters, the server refuses
+to start otherwise), the `MYSQL_*` values, and optionally `GEMINI_MODEL` and `IDLE_TIMEOUT_SECONDS`
+(default 600). `pytest -q` runs all tests without a database or an API key.

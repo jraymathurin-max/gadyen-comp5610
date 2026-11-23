@@ -6,6 +6,15 @@ const sendBtn = document.getElementById("send-btn");
 const langSelect = document.getElementById("lang-select");
 const langPicker = document.getElementById("lang-picker");
 const langOptions = document.getElementById("lang-options");
+const sidebar = document.getElementById("sidebar");
+const historyList = document.getElementById("history-list");
+const historyEmpty = document.getElementById("history-empty");
+const historyTitle = document.getElementById("history-title");
+const newChatBtn = document.getElementById("new-chat-btn");
+const historyToggle = document.getElementById("history-toggle");
+const accountBtn = document.getElementById("account-btn");
+const accountMenu = document.getElementById("account-menu");
+const logoutBtn = document.getElementById("logout-btn");
 
 /* ------------------------------------------------------------------
    Languages. The codes must match gadyen_web/languages.py on the server.
@@ -25,6 +34,9 @@ const LANGUAGES = [
 
 const UI = {
     en: {
+        signOut: "Sign out", account: "Account",
+        newChat: "New conversation", history: "Earlier conversations", noHistory: "No earlier conversations yet.",
+        deleteChat: "Delete conversation", confirmDelete: "Delete?", showHistory: "Show conversations",
         placeholder: "Type your message", send: "Send", typing: "Gadyen is writing",
         language: "Language", note: "Language set to English.",
         unavailable: "The assistant could not answer. Wait a moment, then send your message again.",
@@ -35,6 +47,9 @@ const UI = {
         load: "The conversation could not be loaded. Refresh the page.",
     },
     es: {
+        signOut: "Cerrar sesión", account: "Cuenta",
+        newChat: "Nueva conversación", history: "Conversaciones anteriores", noHistory: "Aún no hay conversaciones anteriores.",
+        deleteChat: "Eliminar conversación", confirmDelete: "¿Eliminar?", showHistory: "Ver conversaciones",
         placeholder: "Escriba su mensaje", send: "Enviar", typing: "Gadyen está escribiendo",
         language: "Idioma", note: "Idioma cambiado a español.",
         unavailable: "El asistente no pudo responder. Espere un momento y envíe su mensaje otra vez.",
@@ -45,6 +60,9 @@ const UI = {
         load: "No se pudo cargar la conversación. Actualice la página.",
     },
     zh: {
+        signOut: "退出登录", account: "账户",
+        newChat: "新对话", history: "以前的对话", noHistory: "还没有以前的对话。",
+        deleteChat: "删除对话", confirmDelete: "删除？", showHistory: "查看对话",
         placeholder: "请输入您的消息", send: "发送", typing: "Gadyen 正在输入",
         language: "语言", note: "语言已切换为中文。",
         unavailable: "助手暂时无法回答。请稍等片刻，然后重新发送您的消息。",
@@ -55,6 +73,9 @@ const UI = {
         load: "无法加载对话。请刷新页面。",
     },
     tl: {
+        signOut: "Mag-sign out", account: "Account",
+        newChat: "Bagong usapan", history: "Mga nakaraang usapan", noHistory: "Wala pang nakaraang usapan.",
+        deleteChat: "Burahin ang usapan", confirmDelete: "Burahin?", showHistory: "Ipakita ang mga usapan",
         placeholder: "I-type ang inyong mensahe", send: "Ipadala", typing: "Nagsusulat si Gadyen",
         language: "Wika", note: "Tagalog na ang wika.",
         unavailable: "Hindi nakasagot ang assistant. Maghintay sandali, pagkatapos ay ipadala muli ang inyong mensahe.",
@@ -65,6 +86,9 @@ const UI = {
         load: "Hindi ma-load ang usapan. I-refresh ang page.",
     },
     vi: {
+        signOut: "Đăng xuất", account: "Tài khoản",
+        newChat: "Cuộc trò chuyện mới", history: "Các cuộc trò chuyện trước", noHistory: "Chưa có cuộc trò chuyện nào trước đây.",
+        deleteChat: "Xóa cuộc trò chuyện", confirmDelete: "Xóa?", showHistory: "Xem các cuộc trò chuyện",
         placeholder: "Nhập tin nhắn của bạn", send: "Gửi", typing: "Gadyen đang soạn",
         language: "Ngôn ngữ", note: "Đã chuyển sang tiếng Việt.",
         unavailable: "Trợ lý chưa trả lời được. Vui lòng chờ một lát rồi gửi lại tin nhắn.",
@@ -75,6 +99,9 @@ const UI = {
         load: "Không tải được cuộc trò chuyện. Hãy tải lại trang.",
     },
     ar: {
+        signOut: "تسجيل الخروج", account: "الحساب",
+        newChat: "محادثة جديدة", history: "المحادثات السابقة", noHistory: "لا توجد محادثات سابقة بعد.",
+        deleteChat: "حذف المحادثة", confirmDelete: "حذف؟", showHistory: "عرض المحادثات",
         placeholder: "اكتب رسالتك", send: "إرسال", typing: "Gadyen يكتب",
         language: "اللغة", note: "تم تغيير اللغة إلى العربية.",
         unavailable: "تعذّر على المساعد الرد. انتظر قليلًا ثم أرسل رسالتك مرة أخرى.",
@@ -85,6 +112,9 @@ const UI = {
         load: "تعذّر تحميل المحادثة. حدّث الصفحة.",
     },
     fr: {
+        signOut: "Se déconnecter", account: "Compte",
+        newChat: "Nouvelle conversation", history: "Conversations précédentes", noHistory: "Aucune conversation précédente pour le moment.",
+        deleteChat: "Supprimer la conversation", confirmDelete: "Supprimer ?", showHistory: "Afficher les conversations",
         placeholder: "Écrivez votre message", send: "Envoyer", typing: "Gadyen écrit",
         language: "Langue", note: "Langue changée : français.",
         unavailable: "L'assistant n'a pas pu répondre. Attendez un instant, puis renvoyez votre message.",
@@ -95,6 +125,9 @@ const UI = {
         load: "La conversation n'a pas pu être chargée. Actualisez la page.",
     },
     ko: {
+        signOut: "로그아웃", account: "계정",
+        newChat: "새 대화", history: "이전 대화", noHistory: "이전 대화가 아직 없습니다.",
+        deleteChat: "대화 삭제", confirmDelete: "삭제할까요?", showHistory: "대화 목록 보기",
         placeholder: "메시지를 입력하세요", send: "보내기", typing: "Gadyen이 작성 중입니다",
         language: "언어", note: "언어가 한국어로 변경되었습니다.",
         unavailable: "어시스턴트가 답변하지 못했습니다. 잠시 후 메시지를 다시 보내 주세요.",
@@ -105,6 +138,9 @@ const UI = {
         load: "대화를 불러오지 못했습니다. 페이지를 새로 고치세요.",
     },
     pt: {
+        signOut: "Sair", account: "Conta",
+        newChat: "Nova conversa", history: "Conversas anteriores", noHistory: "Ainda não há conversas anteriores.",
+        deleteChat: "Excluir conversa", confirmDelete: "Excluir?", showHistory: "Ver conversas",
         placeholder: "Escreva a sua mensagem", send: "Enviar", typing: "Gadyen está escrevendo",
         language: "Idioma", note: "Idioma alterado para português.",
         unavailable: "O assistente não conseguiu responder. Aguarde um momento e envie a mensagem novamente.",
@@ -115,6 +151,9 @@ const UI = {
         load: "Não foi possível carregar a conversa. Atualize a página.",
     },
     ht: {
+        signOut: "Dekonekte", account: "Kont",
+        newChat: "Nouvo konvèsasyon", history: "Ansyen konvèsasyon yo", noHistory: "Poko gen ansyen konvèsasyon.",
+        deleteChat: "Efase konvèsasyon an", confirmDelete: "Efase?", showHistory: "Montre konvèsasyon yo",
         placeholder: "Ekri mesaj ou", send: "Voye", typing: "Gadyen ap ekri",
         language: "Lang", note: "Lang lan chanje: Kreyòl Ayisyen.",
         unavailable: "Asistan an pa t kapab reponn. Tann yon ti moman, epi voye mesaj ou a ankò.",
@@ -130,6 +169,7 @@ const STORAGE_KEY = "gadyen.language";
 let currentLang = null;
 let onlyWelcomeShown = false;   // true while the chat holds nothing but the welcome text
 let busy = false;
+let currentConversationId = null;   // null = a new conversation, not saved yet
 
 function t(key) {
     return (UI[currentLang] || UI.en)[key] || UI.en[key];
@@ -276,7 +316,11 @@ function showTyping() {
    Talking to the server
    ------------------------------------------------------------------ */
 class ChatFailure extends Error {
-    constructor(code) { super(code); this.code = code; }
+    constructor(code, conversationId) {
+        super(code);
+        this.code = code;
+        this.conversationId = conversationId || null;
+    }
 }
 
 async function getBotReply(msg) {
@@ -285,22 +329,26 @@ async function getBotReply(msg) {
         res = await fetch("/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: msg, language: currentLang }),
+            body: JSON.stringify({
+                message: msg,
+                language: currentLang,
+                conversation_id: currentConversationId,
+            }),
         });
     } catch (e) {
         throw new ChatFailure("network");
     }
     if (res.status === 401) {
-        window.location.href = "/";
-        return "";
+        await leaveAfter401(res);
+        return null;
     }
     let data = null;
     try { data = await res.json(); } catch (e) { /* e.g. an HTML error page from the host */ }
     if (!res.ok || !data || typeof data.reply !== "string") {
         const code = data && typeof data.error === "string" ? data.error : "unavailable";
-        throw new ChatFailure(code);
+        throw new ChatFailure(code, data && data.conversation_id);
     }
-    return data.reply;
+    return data;
 }
 
 function setBusy(state) {
@@ -321,11 +369,15 @@ async function sendMessage() {
     const typingDiv = showTyping();
 
     try {
-        const botReply = await getBotReply(message);
+        const data = await getBotReply(message);
         typingDiv.remove();
-        if (botReply) addMessage(botReply, "bot-message");
+        if (data) {
+            addMessage(data.reply, "bot-message");
+            noteConversation(data.conversation_id);
+        }
     } catch (error) {
         typingDiv.remove();
+        noteConversation(error.conversationId);
         const key = UI.en[error.code] ? error.code : "unavailable";
         addMessage(t(key), "bot-message error-message");
         if (key === "too_long") userInput.value = message;
@@ -340,30 +392,162 @@ userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.isComposing) sendMessage();
 });
 
-async function loadChatHistory() {
-    chatBox.replaceChildren();
+/* ------------------------------------------------------------------
+   Conversations: the chat starts empty at every visit; earlier
+   conversations are listed in the side panel and can be reopened.
+   ------------------------------------------------------------------ */
+let conversations = [];
+
+// After a message: remember which conversation we are in and refresh the list
+function noteConversation(id) {
+    if (!id) return;
+    const isNew = currentConversationId !== id;
+    currentConversationId = id;
+    if (isNew || conversations.length === 0 || conversations[0].id !== id) {
+        loadConversations();
+    }
+}
+
+function formatDay(seconds) {
+    if (!seconds) return "";
     try {
-        const res = await fetch("/chat/history");
+        return new Date(seconds * 1000).toLocaleDateString(currentLang || "en",
+            { month: "short", day: "numeric" });
+    } catch (e) {
+        return "";
+    }
+}
+
+function renderConversations() {
+    historyList.replaceChildren();
+    historyEmpty.hidden = conversations.length > 0;
+    conversations.forEach(conv => {
+        const item = document.createElement("li");
+        if (conv.id === currentConversationId) item.classList.add("active");
+
+        const open = document.createElement("button");
+        open.type = "button";
+        open.className = "history-open";
+        const title = document.createElement("span");
+        title.className = "history-name";
+        title.dir = "auto";
+        title.textContent = conv.title;
+        const day = document.createElement("span");
+        day.className = "history-day";
+        day.textContent = formatDay(conv.updated_at);
+        open.appendChild(title);
+        open.appendChild(day);
+        open.addEventListener("click", () => openConversation(conv.id));
+
+        // Deleting takes two clicks: the first turns the button into "Delete?"
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "history-delete";
+        remove.textContent = "×";
+        remove.setAttribute("aria-label", t("deleteChat"));
+        remove.title = t("deleteChat");
+        const disarm = () => {
+            remove.classList.remove("armed");
+            remove.textContent = "×";
+        };
+        remove.addEventListener("click", () => {
+            if (remove.classList.contains("armed")) {
+                deleteConversation(conv.id);
+            } else {
+                remove.classList.add("armed");
+                remove.textContent = t("confirmDelete");
+            }
+        });
+        remove.addEventListener("blur", disarm);
+        item.addEventListener("mouseleave", disarm);
+
+        item.appendChild(open);
+        item.appendChild(remove);
+        historyList.appendChild(item);
+    });
+}
+
+async function loadConversations() {
+    try {
+        const res = await fetch("/conversations");
         if (res.status === 401) {
-            window.location.href = "/";
+            await leaveAfter401(res);
             return;
         }
-        if (!res.ok) throw new Error("history request failed");
+        if (!res.ok) throw new Error("conversation list failed");
+        const list = await res.json();
+        conversations = Array.isArray(list) ? list : [];
+        renderConversations();
+    } catch (error) {
+        console.error(error);
+    }
+}
 
-        const history = await res.json();
-        if (Array.isArray(history) && history.length > 0) {
-            onlyWelcomeShown = false;
-            history.forEach(chat => {
-                addMessage(chat.content, chat.role === "user" ? "user-message" : "bot-message");
-            });
-        } else {
-            await loadInitialGreeting();
+async function startNewConversation() {
+    if (busy || !currentLang) return;
+    currentConversationId = null;
+    renderConversations();
+    closeSidebar();
+    await loadInitialGreeting();
+    userInput.focus();
+}
+
+async function openConversation(id) {
+    if (busy || !currentLang) return;
+    closeSidebar();
+    chatBox.replaceChildren();
+    try {
+        const res = await fetch("/conversations/" + encodeURIComponent(id) + "/messages");
+        if (res.status === 401) {
+            await leaveAfter401(res);
+            return;
         }
+        if (!res.ok) throw new Error("conversation request failed");
+        const messages = await res.json();
+        currentConversationId = id;
+        onlyWelcomeShown = false;
+        messages.forEach(m => {
+            addMessage(m.content, m.role === "user" ? "user-message" : "bot-message");
+        });
+        renderConversations();
+        userInput.focus();
     } catch (error) {
         console.error(error);
         addMessage(t("load"), "bot-message error-message");
     }
 }
+
+async function deleteConversation(id) {
+    try {
+        const res = await fetch("/conversations/" + encodeURIComponent(id), { method: "DELETE" });
+        if (res.status === 401) {
+            await leaveAfter401(res);
+            return;
+        }
+        if (!res.ok && res.status !== 404) throw new Error("delete failed");
+        conversations = conversations.filter(c => c.id !== id);
+        if (currentConversationId === id) {
+            currentConversationId = null;
+            renderConversations();
+            await loadInitialGreeting();
+        } else {
+            renderConversations();
+        }
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function closeSidebar() {
+    sidebar.classList.remove("open");
+    historyToggle.setAttribute("aria-expanded", "false");
+}
+
+newChatBtn.addEventListener("click", startNewConversation);
+historyToggle.addEventListener("click", () => {
+    const open = sidebar.classList.toggle("open");
+    historyToggle.setAttribute("aria-expanded", open ? "true" : "false");
+});
 
 // Welcome text in the chosen language, shown when there is no conversation yet
 async function loadInitialGreeting() {
@@ -373,7 +557,7 @@ async function loadInitialGreeting() {
     try {
         const res = await fetch("/chat/welcome?lang=" + encodeURIComponent(currentLang));
         if (res.status === 401) {
-            window.location.href = "/";
+            await leaveAfter401(res);
             return;
         }
         if (!res.ok) throw new Error("welcome request failed");
@@ -388,6 +572,91 @@ async function loadInitialGreeting() {
 }
 
 /* ------------------------------------------------------------------
+   Account menu, sign-out, and automatic sign-out after inactivity.
+   The server enforces the same time limit (see enforce_idle_timeout in
+   server.py); this timer only makes the page react at the right moment.
+   ------------------------------------------------------------------ */
+let idleLimitMs = 10 * 60 * 1000;
+let lastActivity = Date.now();
+let lastKeepAlive = Date.now();
+let signingOut = false;
+
+// A 401 means the session is gone. Tell the sign-in page why when we know.
+async function leaveAfter401(res) {
+    let idle = false;
+    try {
+        const data = await res.clone().json();
+        idle = !!data && data.reason === "idle";
+    } catch (e) { /* not JSON */ }
+    window.location.href = idle ? "/?error=idle" : "/";
+}
+
+async function signOut(reason) {
+    if (signingOut) return;
+    signingOut = true;
+    try {
+        await fetch("/logout", { method: "POST" });
+    } catch (e) { /* the server ends idle sessions by itself anyway */ }
+    window.location.href = reason === "idle" ? "/?error=idle" : "/";
+}
+
+async function loadAccount() {
+    try {
+        const res = await fetch("/me");
+        if (res.status === 401) {
+            await leaveAfter401(res);
+            return;
+        }
+        if (!res.ok) return;
+        const me = await res.json();
+        const name = String(me.name || me.username || "");
+        document.getElementById("account-name").textContent = name;
+        document.getElementById("account-full").textContent = name;
+        document.getElementById("account-user").textContent = me.username ? "@" + me.username : "";
+        document.getElementById("account-initial").textContent = name.trim().charAt(0).toUpperCase() || "?";
+        if (Number(me.idle_seconds) > 0) idleLimitMs = Number(me.idle_seconds) * 1000;
+    } catch (error) {
+        console.error(error);
+    }
+}
+
+function closeAccountMenu() {
+    accountMenu.hidden = true;
+    accountBtn.setAttribute("aria-expanded", "false");
+}
+
+accountBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const open = accountMenu.hidden;
+    accountMenu.hidden = !open;
+    accountBtn.setAttribute("aria-expanded", open ? "true" : "false");
+});
+accountMenu.addEventListener("click", (event) => event.stopPropagation());
+document.addEventListener("click", closeAccountMenu);
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeAccountMenu();
+});
+logoutBtn.addEventListener("click", () => signOut("user"));
+
+// Any key, click, tap, scroll or pointer movement counts as activity.
+function noteActivity() {
+    const now = Date.now();
+    if (now - lastActivity >= idleLimitMs) return;   // too late: let the timer sign out
+    lastActivity = now;
+    // Tell the server the user is still here, at most every two minutes.
+    if (now - lastKeepAlive > 120000) {
+        lastKeepAlive = now;
+        fetch("/me").then(res => { if (res.status === 401) leaveAfter401(res); }).catch(() => {});
+    }
+}
+["keydown", "pointerdown", "pointermove", "wheel", "touchstart", "scroll"].forEach(type => {
+    window.addEventListener(type, noteActivity, { passive: true, capture: true });
+});
+setInterval(() => {
+    if (Date.now() - lastActivity >= idleLimitMs) signOut("idle");
+}, 5000);
+
+/* ------------------------------------------------------------------
    Language choice
    ------------------------------------------------------------------ */
 function applyLanguage(code) {
@@ -400,6 +669,14 @@ function applyLanguage(code) {
     userInput.dir = lang && lang.rtl ? "rtl" : "auto";
     sendBtn.textContent = t("send");
     document.getElementById("lang-label").textContent = t("language");
+    logoutBtn.textContent = t("signOut");
+    accountBtn.setAttribute("aria-label", t("account"));
+    newChatBtn.textContent = "+ " + t("newChat");
+    historyTitle.textContent = t("history");
+    historyEmpty.textContent = t("noHistory");
+    historyToggle.setAttribute("aria-label", t("showHistory"));
+    historyToggle.title = t("showHistory");
+    renderConversations();
 }
 
 async function chooseLanguage(code) {
@@ -412,7 +689,9 @@ async function chooseLanguage(code) {
         langPicker.hidden = true;
         chatBox.hidden = false;
         setBusy(false);
-        await loadChatHistory();
+        newChatBtn.disabled = false;
+        loadConversations();
+        await loadInitialGreeting();
     } else if (onlyWelcomeShown) {
         await loadInitialGreeting();
     } else {
@@ -436,13 +715,17 @@ function init() {
     });
     langSelect.addEventListener("change", () => chooseLanguage(langSelect.value));
 
+    loadAccount();
+
     // Remove the old copy of the chat that earlier versions kept in the browser
     try { localStorage.removeItem("chatHistory"); } catch (e) { /* ignore */ }
 
     const stored = readStoredLanguage();
     if (stored) {
+        // Every visit starts with an empty chat; earlier ones are in the side panel
         applyLanguage(stored);
-        loadChatHistory();
+        loadConversations();
+        loadInitialGreeting();
     } else {
         // First visit: the customer picks a language before anything else
         langSelect.selectedIndex = -1;
@@ -450,6 +733,7 @@ function init() {
         langPicker.hidden = false;
         sendBtn.disabled = true;
         userInput.disabled = true;
+        newChatBtn.disabled = true;
     }
 }
 

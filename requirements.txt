@@ -7,9 +7,10 @@ pydantic>=2.6
 python-docx>=1.1
 python-dotenv>=1.0
 pytest>=8.0
-flask
+# Flask chatbot web apps (database/ and gadyen_web/)
+flask>=3.0
 gunicorn
-mysql-connector-python
-bcrypt
-google-genai
+mysql-connector-python>=9.0
+bcrypt>=4.1
+google-genai>=1.0
 requests
