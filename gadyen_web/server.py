@@ -38,7 +38,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 security_log = logging.getLogger("gadyen.security")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MAX_MESSAGE_CHARS = 4000
+MAX_MESSAGE_CHARS = 2000
 # A signed-in session ends after this long without any request (default 10 minutes).
 IDLE_TIMEOUT_SECONDS = int(os.getenv("IDLE_TIMEOUT_SECONDS", "600"))
 EMAIL_RE = re.compile(r"^[^@\s<>]{1,64}@[^@\s<>]{1,190}\.[A-Za-z]{2,24}$")
@@ -244,9 +244,13 @@ def chat():
         return jsonify(error="not_logged_in"), 401
     user_id = session["user_id"]
     data = request.get_json(silent=True)
+
     if not isinstance(data, dict):
-        data = {}
+        return jsonify(error="invalid_json"), 400
+    
     message = data.get("message")
+    if not isinstance(message, str):
+        return jsonify(error="invalid_message"), 400
     message = message.strip() if isinstance(message, str) else ""
     language = normalize_language(data.get("language"))
     conversation_id = _conversation_id(data.get("conversation_id"))
