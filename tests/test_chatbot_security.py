@@ -218,11 +218,27 @@ def web(monkeypatch):
     monkeypatch.setitem(sys.modules, "database.database", fake_db)
 
     from chatbot import chatbot
-    monkeypatch.setattr(chatbot, "get_reply", lambda uid, msg: llm_calls.append(msg) or "bot reply")
+    monkeypatch.setattr(
+    chatbot, "get_reply",
+    lambda uid, msg, *args: llm_calls.append(msg) or "bot reply"
+)
+
     monkeypatch.setenv("SECRET_KEY", "x" * 64)
     sys.modules.pop("gadyen_web.server", None)
+
     server = importlib.import_module("gadyen_web.server")
-    monkeypatch.setattr(server, "get_reply", lambda uid, msg: llm_calls.append(msg) or "bot reply")
+
+    monkeypatch.setattr(
+        server, "get_reply",
+        lambda uid, msg, *args: llm_calls.append(msg) or "bot reply"
+    )
+
+    monkeypatch.setattr(server.store, "create_conversation",
+                        lambda uid, title: {"id": 1, "title": title})
+
+    monkeypatch.setattr(server.store, "add_message", lambda *args: None)
+    monkeypatch.setattr(server.store, "get_messages", lambda *args, **kwargs: [])
+    monkeypatch.setattr(server.store, "owns_conversation", lambda uid, cid: True)
     server.app.config["TESTING"] = True
     server.saved, server.llm_calls, server.login_checks = saved, llm_calls, login_checks
     server.registered = registered
@@ -243,7 +259,7 @@ def test_server_refuses_to_start_without_strong_secret(monkeypatch, web):
 def test_chat_requires_login(web):
     c = web.app.test_client()
     assert c.post("/chat", json={"message": "hi"}).status_code == 401
-    assert c.get("/chat/history").status_code == 401
+    assert c.get("/conversations").status_code == 401
     assert c.get("/dashboard").status_code == 302
 
 
