@@ -1,16 +1,19 @@
 #!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")"    # always run form the repo root
+
 sudo apt update
-sudo apt install mysql-server
+sudo apt install -y mysql-server python3-venv mkcert libnss3-tools
 
 python3 -m venv gadyen-env
-source gadyen-env/bin/activate
+gadyen-env/bin/python -m pip install --upgrade pip
+gadyen-env/bin/python -m pip install -r requirements.txt
+gadyen-env/bin/python -m pip install flask flask-mail mysql-connector-python \
+python-dotenv google-genai bcrypt pytest dnspython httpx
 
-pip3 install flask
-pip3 install mysql-connector-python
-pip3 install dotenv
-python3 -m pip install google-genai
-pip3 install bcrypt
 
-sudo apt install -y mkcert libnss3-tools
 mkcert -install
-mkcert cyberRange 0.0.0.0
+[ -f cyberRange+1.pem ] || mkcert cyberRange 0.0.0.0
+
+echo
+echo "Setup Complete. Active with: source gadyen-env/bin/activate"
