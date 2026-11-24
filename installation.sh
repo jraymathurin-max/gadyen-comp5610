@@ -14,4 +14,3 @@ pip3 install bcrypt
 sudo apt install -y mkcert libnss3-tools
 mkcert -install
 mkcert cyberRange 0.0.0.0
-gunicorn --bind 0.0.0.0:8000 --certfile cyberRange+1.pem --keyfile cyberRange+1-key.pem gadyen_web.server:app
