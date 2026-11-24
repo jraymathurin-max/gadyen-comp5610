@@ -23,11 +23,12 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from flask import Flask, jsonify, redirect, request, send_from_directory, session  # noqa: E402
+from flask_mail import Mail, Message
 from mysql.connector import errors  # noqa: E402
 
 from chatbot.security import (RateLimiter, filter_output, looks_like_injection,  # noqa: E402
                               redact_sensitive, validate_registration)
-from database.database import get_table, check_user, add_user, check_username  # noqa: E402
+from database.database import get_table, check_user, add_user, check_username, get_cursor  # noqa: E402
 from gadyen_web import accounts  # noqa: E402
 from gadyen_web import conversations as store  # noqa: E402
 from gadyen_web.chatbot import (QUOTABLE, ChatError, forget_conversation, get_reply,  # noqa: E402
@@ -171,7 +172,59 @@ def register():
         raise
     security_log.info("user_registered username=%s ip=%s", username, client_ip())
     return redirect("/")
+@app.get("/user-info")
+def user_info_page():
+    if "user_id" not in session:
+        return redirect("/")
+    return send_from_directory(os.path.join(BASE_DIR, "views"), "user_info.html")
 
+@app.get("/api/me")
+def user_info():
+    if "user_id" not in session:
+        return jsonify(error="not_logged_in"), 401
+    with get_cursor() as cur:
+        cur.execute(
+            "SELECT u.username, i.name, i.email "
+            "FROM user_login u "
+            "LEFT JOIN user_info i ON i.user_id = u.id "
+            "WHERE u.id = %s",
+            (session["user_id"],),
+        )
+        row = cur.fetchone()
+    return jsonify(row or {})
+
+@app.post("/verify")
+def verify_email():
+    email = (request.form.get("email") or "").strip().lower()
+    entered_otp = (request.form.get("otp") or "").strip()
+
+    if not email or not entered_otp:
+        return redirect("/register.html?error=missing")
+
+    stored_data = otp_storage.get(email)
+
+    if not stored_data or time.time() > stored_data["expires"]:
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=expired")
+
+    if entered_otp != stored_data["otp"]:
+        return redirect(
+            f"/verify.html?email={quote(email)}&error=invalid"
+        )
+
+    try:
+        add_user(
+            stored_data["username"],
+            stored_data["password"],
+            stored_data["name"],
+            email,
+        )
+        print(f"User {stored_data['username']} verified and registered")
+    except errors.IntegrityError:
+        return redirect("/register.html?error=1")
+
+    otp_storage.pop(email, None)
+    return redirect("/")
 
 @app.post("/login")
 def login():
