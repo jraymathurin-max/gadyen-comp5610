@@ -9,7 +9,7 @@ python3 -m venv gadyen-env
 gadyen-env/bin/python -m pip install --upgrade pip
 gadyen-env/bin/python -m pip install -r requirements.txt
 gadyen-env/bin/python -m pip install flask flask-mail mysql-connector-python \
-python-dotenv google-genai bcrypt pytest dnspython httpx
+python-dotenv google-genai bcrypt pytest dnspython httpx gunicorn
 
 
 mkcert -install

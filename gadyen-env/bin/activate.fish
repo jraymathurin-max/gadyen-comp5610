@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /home/estark/CompSec/gadyen-comp5610/gadyen-env
+set -gx VIRTUAL_ENV /home/estark/test_gadyen/gadyen-comp5610/gadyen-env
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH
