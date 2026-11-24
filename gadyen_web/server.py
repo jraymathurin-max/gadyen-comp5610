@@ -16,6 +16,7 @@ import logging
 import os
 import re
 import time
+import secrets
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
@@ -165,32 +166,37 @@ def dashboard():
 # ------------------------------------------------------------------ auth
 @app.post("/register")
 def register():
-    if not register_limiter.hit(client_ip()):
-        security_log.warning("register_rate_limited ip=%s", client_ip())
-        return redirect("/register.html?error=rate")
-    name = request.form.get("name", "").strip()
-    email = request.form.get("email", "").strip()
-    username = request.form.get("username", "").strip()
-    password = request.form.get("password", "")
-    if validate_registration(username, password):
-        return redirect("/register.html?error=policy")
-    if not name or len(name) > 255 or not EMAIL_RE.match(email):
-        return redirect("/register.html?error=policy")
+    print("REGISTER ROUTE REACHED")
+    name = request.form["name"].strip()
+    email = request.form["email"].strip().lower()
+    username = request.form["username"]
+    password = request.form["password"]
+
+    # re_enter_password = request.form["re_enter_password"]
     if check_username(username):
         return redirect("/register.html?error=1")
+
+    otp = ''.join(secrets.choice(string.digits) for _ in range(6))
+    otp_storage[email] = {
+        "otp": otp,
+        "name": name,
+        "username": username,
+        "password": password,
+        "expires": time.time() + OTP_TTL
+    }
     try:
-        add_user(username, password, name, email)
-    except errors.IntegrityError as e:
-        if e.errno == 1062:  # duplicate entry
-            return redirect("/register.html?error=1")
-        raise
-    security_log.info("user_registered username=%s ip=%s", username, client_ip())
-    return redirect("/")
-@app.get("/user-info")
-def user_info_page():
-    if "user_id" not in session:
-        return redirect("/")
-    return send_from_directory(os.path.join(BASE_DIR, "views"), "user_info.html")
+        mail.send_message(
+            subject=f"Verify your email",
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[email],
+            body=f"Your verification code is: {otp}"
+        )
+        print("OTP EMAIL SENT SUCCESSFULLY")
+    except Exception as e:
+        print("EMAIL ERROR: ", repr(e))
+        otp_storage.pop(email, None)
+        return redirect("/register.html?error=email")
+    return redirect(f"/verify.html?email={quote(email)}")
 
 @app.get("/api/me")
 def user_info():
